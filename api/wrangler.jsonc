@@ -3,7 +3,7 @@
   "name": "rustports-api",
   "main": "worker.js",
   "compatibility_date": "2026-08-18",
-  "workers_dev": true,
+  "workers_dev": false,
   "preview_urls": false,
   "observability": { "enabled": true },
   "d1_databases": [
@@ -16,6 +16,7 @@
   "vars": {
     "SITE_ORIGIN": "https://rustports.com",
     "GITHUB_CALLBACK_URL": "https://api.rustports.com/auth/github/callback",
-    "MODERATOR_GITHUB_IDS": ""
+    "GITHUB_CLIENT_ID": "Ov23li2wX9K7id0dfdaf",
+    "MODERATOR_GITHUB_IDS": "127261791"
   }
 }
