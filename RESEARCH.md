@@ -1,5 +1,14 @@
 # RustPorts research notes
 
+## Production verification, 2026-09-30 11:49 UTC
+
+- Worker version: `6eb6f4f5-4b50-4915-8dec-67d794d1bb06`. Final Pages deployment: `https://f937aac5.rustports.pages.dev`, serving `https://rustports.com`.
+- `node scripts/check-live.mjs` passed all 16 read-only checks: seven public files match the reviewed build with security headers, five private/nonexistent paths return 404, and four live API endpoints return expected status/CORS and configured-auth health. No production test accounts or listings were added.
+- Live browser loaded the empty moderated catalog, called the live API, and opened an enabled GitHub consent dialog. Actual GitHub login still requires the user's own Terms acceptance. Local browser workflow and 23 automated checks passed earlier, with static checks rerun after the final deployment fixes.
+- Live verification caught Cloudflare email obfuscation rewriting contact links. Reused `email_off` exclusions (https://developers.cloudflare.com/waf/tools/scrape-shield/email-address-obfuscation/) and verified only the directives are removed in production, with mailto links intact and no decode script injected.
+- Live browser also reproduced stale prelaunch JavaScript under the zone's four-hour asset caching. Versioned script/style URLs fixed initialization. Bump the asset query version in HTML and smoke checks whenever those assets change.
+- Remaining acceptance boundaries: real production GitHub sign-in and test-email delivery to rights@rustports.com. Obtain qualified legal review before representing the platform as legally launch-ready. Direct connections and no asset hosting do not eliminate liability.
+
 ## Launch hardening, 2026-09-30
 
 - Reused Cloudflare's D1 test binding pattern: https://developers.cloudflare.com/workers/testing/miniflare/storage/d1/

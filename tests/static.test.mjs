@@ -13,7 +13,7 @@ test('HTML links resolve to public pages and comply with strict script/style pol
   assert.doesNotMatch(html,/<style\b|\sstyle=|\son\w+=|<script(?![^>]*\bsrc=)/i,file);
   for(const [,url]of html.matchAll(/(?:href|src)="([^"]+)"/g)){
    if(/^(?:https?:|mailto:|#)/.test(url))continue;
-   const target=url==='/'?'index.html':url.replace(/^\//,'').split('#')[0];
+   const target=url==='/'?'index.html':url.replace(/^\//,'').split(/[?#]/)[0];
    assert.ok(publicFiles.includes(target),`${file} links to missing ${target}`);
   }
  }
@@ -23,4 +23,10 @@ test('security headers restrict framing, script origins, and network destination
  const headers=await readFile(new URL('_headers',root),'utf8');
  for(const rule of ["script-src 'self'","frame-ancestors 'none'","connect-src https://api.rustports.com","X-Content-Type-Options: nosniff"])assert.ok(headers.includes(rule));
  const html=await readFile(new URL('index.html',root),'utf8');assert.ok(html.includes('id="catalog-retry"'));
+ assert.ok(html.includes('src="app.js?v=launch-20260930"'));
+ assert.ok(html.includes('href="styles.css?v=launch-20260930"'));
+ for(const name of ['contact.html','privacy.html']){
+  const page=await readFile(new URL(name,root),'utf8');
+  assert.match(page,/<!--email_off-->[\s\S]*mailto:rights@rustports\.com[\s\S]*<!--\/email_off-->/);
+ }
 });
