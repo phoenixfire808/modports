@@ -9,6 +9,7 @@
 3. Use the [Jcode project instructions](spreadsheet/AGENTS.md) in your own project to keep authored workbook data separate from generated output.
 4. Browse the [reference library](RESOURCES.md). Links go to the tools' official sites rather than repackaged downloads.
 5. Developers can inspect the [native Jcode draft](native-jcode/README.md), including source, tests, a patch, and fixture workbooks. It is **not a stable Jcode release**.
+6. Read the [Jcode SQLite + DBViewer + optional Obsidian guide](JCODE-DBVIEWER-OBSIDIAN.md) for the current native database workflow, spreadsheet cutover choice, detailed flowchart, token/context boundaries, installation, and validation checklist.
 
 ## What exists versus what is planned
 
@@ -17,7 +18,7 @@
 | Entities / Fields / Rules workbook and Python validator | Runnable starter, not a game engine |
 | Stable IDs, references, literal values, generated JSON, drift check | Implemented in Python starter |
 | Evidence sheet | Human-maintained research ledger, not validated/exported yet |
-| Native `jcode workbook inspect/build/check` | Experimental source snapshot, known issues, not released |
+| Native Jcode SQLite, CLI/agent database tools, separate DBViewer, and optional Obsidian memory | Experimental implementation in the Jcode development tree; follow the integration guide and verify the precise downloadable build before use |
 | Automatic reconstruction of a game from a binary or spreadsheet | Not provided |
 | Automatic task context, query UI, schema migration, parity automation | Planned or exploratory, not completed features |
 | Copyright or legal clearance | Not provided by these tools |

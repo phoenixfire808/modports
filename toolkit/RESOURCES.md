@@ -32,6 +32,15 @@ These tools are references, not installed dependencies of the spreadsheet starte
 | [Typst JSON reference](https://typst.app/docs/reference/data-loading/json/) | Generate reports from structured data | Optional: format the generated matrix instead of hand-copying workbook values |
 | [Jcode upstream](https://github.com/1jehuang/jcode) | Coding assistant source and project guidance | Native workbook changes here are a draft snapshot, not an official release |
 
+## Native database and optional memory integration
+
+| Resource | Purpose | Boundary |
+| --- | --- | --- |
+| [SQLite language reference](https://sqlite.org/lang.html) | Understand embedded SQL and transaction semantics | Keep one project authority; Jcode does not copy the entire database into each prompt |
+| [Rust DBViewer source](https://github.com/carbon77/db-viewer) | Existing MIT-licensed native Rust/egui database viewer | Bundled only as a separately built companion with its license; SQLite viewing is read-only |
+| [Obsidian local storage](https://obsidian.md/help/data-storage) | Confirms vault notes are local Markdown files | Jcode sync is local and happens at memory save/recall boundaries, not via an always-on service |
+| [Jcode DBViewer and Obsidian workflow](JCODE-DBVIEWER-OBSIDIAN.md) | Detailed stages, commands, safety limits, and flowchart | Experimental implementation; no zero-drift, automatic decompilation, or fixed token-savings promise |
+
 ## Safe first exercise
 
 1. Write your own tiny timer/cooldown program with two or three known states.
@@ -45,4 +54,4 @@ That exercise teaches observation, falsifiable hypotheses and data-driven implem
 
 ## Research/provenance notes
 
-The Python scaffold and spreadsheet-first instructions reuse Drew's existing generic project scaffold, with publication-safe synthetic examples, no-overwrite template creation, formula rejection and atomic/check-mode output added here. The native draft retains upstream MIT attribution and a hash manifest. Official Ghidra and openpyxl pages were consulted during packaging on 2026-09-30. Other links are official reference entry points, not claims that every example or tool release has been tested. No manuals, executable tools, third-party libraries or commercial game data are vendored by this guide.
+The Python scaffold and spreadsheet-first instructions reuse Drew's existing generic project scaffold, with publication-safe synthetic examples, no-overwrite template creation, formula rejection and atomic/check-mode output added here. The Jcode native database work reuses the existing MIT-licensed carbon77 Rust/egui DBViewer v0.2.0 at commit `0006a737c96ea07332673fa03100ac3904b528e6`, built as a separate companion to avoid linking another SQLite version into Jcode. Obsidian integration uses its documented local Markdown vault behavior, not a plugin or remote API. Official Ghidra, openpyxl, Obsidian storage and SQLite pages were consulted on 2026-09-30. No binaries, credentials, user databases, Obsidian notes, or game assets are included in this toolkit. RustPorts.com prohibits file uploads; any verified portable binary distribution belongs in a versioned external GitHub release, linked from the resources page.

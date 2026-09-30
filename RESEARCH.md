@@ -62,3 +62,11 @@ Integration discovery found no end-user auth, Cloudflare D1, or user-repository 
 - A trusted moderator identity/allowlist must be configured before approvals are enabled.
 - Deploy the API, set D1 binding and API hostname, then update/redeploy the frontend to call it. Verify public published-only visibility and moderator/contributor role boundaries before inviting users.
 - Review final ToS/privacy/takedown process with appropriate counsel and provide user data deletion/contact routes before launch.
+
+## Spreadsheet workflow + Jcode SQLite/Obsidian resource update, 2026-09-30
+
+- Added the experimental Jcode + SQLite + separate DBViewer + optional Obsidian guide and Mermaid flowchart to the public toolkit. The guide keeps one writable authority per project and explicitly states limits on behavioral parity, drift guarantees, and token savings.
+- Reused Obsidian's official local Markdown vault storage model rather than introducing an Obsidian plugin or server API: https://obsidian.md/help/data-storage. Jcode syncs only its dedicated `Jcode Memory` folders at memory-save/recall boundaries; it is not an always-on file watcher and does not upload a vault.
+- Reused the existing separately packaged MIT DBViewer companion and the site's allowlisted static build. The site remains metadata/link-only: GitHub is the destination for source/releases; RustPorts does not accept executable or archive uploads.
+- RustPorts validation: API tests passed 20/20, static checks passed 3/3, and the build emitted only ten allowlisted public files. Deployment is not yet verified.
+- Jcode release compilation and Obsidian-specific Rust tests remain pending. No stable release or completed end-to-end Obsidian GUI acceptance is claimed.
