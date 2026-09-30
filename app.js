@@ -1,5 +1,5 @@
-const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'http://127.0.0.1:8788' : 'https://api.rustports.com';
-const empty = '<div class="empty-state">NO PUBLISHED PROJECTS YET. NEW SUBMISSIONS APPEAR AFTER MODERATOR APPROVAL.</div>';
+const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? `http://127.0.0.1:${Number(location.port || 8787) + 1}` : 'https://api.rustports.com';
+const empty = '<div class="empty-state"><span class="eyebrow">THE FIRST CHAPTER IS STILL BEING WRITTEN</span><h3>Your project could start it.</h3><p>No projects have been published yet. While the catalogue grows, run the original workbook example or submit your own Rust project for review.</p><div class="empty-actions"><a class="button button-primary" href="/resources.html#quickstart">Try the starter ↗</a><button class="button button-outline" id="empty-submit">Submit a project ＋</button></div></div>';
 let projects = [];
 let picks = new Set();
 let activeFilter = 'all';
@@ -27,6 +27,25 @@ async function api(path, options={}){
 }
 function showMessage(element,message,isError=false){element.textContent=message;element.classList.toggle('error',isError);}
 function artTheme(project){const themes=['theme-ice','theme-dust','theme-night','theme-copper','theme-pine'];let number=0;for(const char of String(project.id))number=(number+char.charCodeAt(0))%themes.length;return themes[number];}
+function restoreCatalogState(){
+ const params=new URLSearchParams(location.search);
+ $('#search').value=(params.get('q')||'').slice(0,200);
+ activeFilter=['prototype','playable','released'].includes(params.get('stage'))?params.get('stage'):'all';
+ sortByNewest=params.get('sort')!=='picks';
+ updateCatalogControls();
+}
+function updateCatalogControls(){
+ $$('.filter').forEach(item=>{const active=item.dataset.filter===activeFilter;item.classList.toggle('active',active);item.setAttribute('aria-pressed',String(active));});
+ $('#sort').textContent=sortByNewest?'Newest ↓':'Most picked ↓';
+ $('#sort').setAttribute('aria-label',sortByNewest?'Sort by community picks':'Sort by newest');
+}
+function saveCatalogState(){
+ const url=new URL(location.href);
+ for(const [key,value]of [['q',$('#search').value.trim().slice(0,200)],['stage',activeFilter==='all'?'':activeFilter],['sort',sortByNewest?'':'picks']]){
+  if(value)url.searchParams.set(key,value);else url.searchParams.delete(key);
+ }
+ history.replaceState(null,'',url);
+}
 function renderCatalog(){
  const query=$('#search').value.trim().toLowerCase();
  const filtered=projects.filter(project=>(activeFilter==='all'||project.development_stage===activeFilter)&&(!query||`${project.name} ${project.creator} ${project.summary} ${project.category} ${project.repo_owner}`.toLowerCase().includes(query)));
@@ -34,7 +53,7 @@ function renderCatalog(){
  const grid=$('#project-grid');
  grid.innerHTML=filtered.length?filtered.map(project=>{
   const selected=picks.has(project.id);
-  return `<article class="project-card"><div class="card-art ${artTheme(project)}"><span class="card-sun"></span><span class="mountain"></span><span class="mountain two"></span><div class="card-tags"><span class="tag tag-status">${escapeHtml(categoryLabel(project.category))}</span></div><span class="art-number">FIELD ${escapeHtml(String(project.id).slice(0,7))}</span><span class="art-label">${escapeHtml(stageLabel(project.development_stage).toUpperCase())}</span></div><div class="card-body"><div class="card-titleline"><div><h3 class="card-title">${escapeHtml(project.name)}</h3><div class="card-creator">by ${escapeHtml(project.creator)}</div></div><a class="card-link" href="${escapeHtml(project.repo_url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(project.name)} on GitHub">↗</a></div><p class="card-desc">${escapeHtml(project.summary)}</p><p class="repo-note">${project.repo_owner_verified?'GitHub owner verified':'GitHub link · review checked'} · metadata only</p>${project.connection_address?`<div class="direct-connect"><span>CREATOR-RUN SERVER · DIRECT CONNECTION</span><code>${escapeHtml(project.connection_address)}</code><button type="button" class="button button-outline" data-copy-address="${escapeHtml(project.connection_address)}">Copy address</button><small>Connect using the game’s own client. RustPorts does not relay game traffic.</small></div>`:''}<div class="card-foot"><span class="card-picks"><b>${Number(project.picks)||0}</b> community picks</span><button class="pick-button ${selected?'selected':''}" data-pick="${escapeHtml(project.id)}">${selected?'✓ Picked':'Pick this'}</button></div></div></article>`;
+  return `<article class="project-card"><div class="card-art ${artTheme(project)}"><span class="card-sun"></span><span class="mountain"></span><span class="mountain two"></span><div class="card-tags"><span class="tag tag-status">${escapeHtml(categoryLabel(project.category))}</span></div><span class="art-number">PROJECT ${escapeHtml(String(project.id).slice(0,7))}</span><span class="art-label">${escapeHtml(stageLabel(project.development_stage).toUpperCase())}</span></div><div class="card-body"><div class="card-titleline"><div><h3 class="card-title">${escapeHtml(project.name)}</h3><div class="card-creator">by ${escapeHtml(project.creator)}</div></div><a class="card-link" href="${escapeHtml(project.repo_url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(project.name)} on GitHub">↗</a></div><p class="card-desc">${escapeHtml(project.summary)}</p><p class="repo-note">${project.repo_owner_verified?'GitHub owner verified':'GitHub link · review checked'} · metadata only</p>${project.connection_address?`<div class="direct-connect"><span>CREATOR-RUN SERVER · DIRECT CONNECTION</span><code>${escapeHtml(project.connection_address)}</code><button type="button" class="button button-outline" data-copy-address="${escapeHtml(project.connection_address)}">Copy address</button><small>Connect using the game’s own client. RustPorts does not relay game traffic.</small></div>`:''}<div class="card-foot"><span class="card-picks"><b>${Number(project.picks)||0}</b> community picks</span><button class="pick-button ${selected?'selected':''}" data-pick="${escapeHtml(project.id)}" aria-pressed="${selected}" aria-label="${selected?'Remove pick for':'Pick'} ${escapeHtml(project.name)}">${selected?'✓ Picked':'Pick this'}</button></div></div></article>`;
  }).join(''):(projects.length?'<div class="empty-state">No projects match your search or filter. <button class="text-link" id="clear-search">Clear filters</button></div>':catalogLoaded?empty:'<div class="empty-state">The catalog is unavailable. Please retry below.</div>');
  $('#showing-count').textContent=filtered.length.toString().padStart(2,'0');
  $('#project-count').textContent=projects.length.toString().padStart(2,'0');
@@ -48,7 +67,7 @@ function renderActivity(items=[]){
 }
 function renderAccountNav(user){
  const target=$('#account-nav');
- if(!user){target.innerHTML='<button class="button button-light" id="login-open">Sign in / join with GitHub <span>↗</span></button>';$('#login-open').addEventListener('click',openAuth);return;}
+ if(!user){target.innerHTML='<button class="button button-light" id="login-open">Sign in with GitHub <span aria-hidden="true">↗</span></button>';$('#login-open').addEventListener('click',openAuth);return;}
  target.innerHTML=`<div class="account-menu"><span class="account-handle">@${escapeHtml(user.login)}</span><button class="account-button" id="dashboard-open">My dashboard</button></div>`;
  $('#dashboard-open').addEventListener('click',openDashboard);
 }
@@ -84,6 +103,7 @@ async function openDashboard(){
 }
 async function refresh(){
  const message=$('#catalog-message');
+ $('#project-grid').setAttribute('aria-busy','true');
  const [catalog,activity,me]=await Promise.allSettled([api('/api/catalog'),api('/api/activity'),api('/api/me')]);
  if(catalog.status==='fulfilled'){
   projects=catalog.value.projects||[];catalogLoaded=true;showMessage(message,projects.length?'Only moderator-published project listings are shown.':'No public projects yet. Be the first to submit an original Rust project for review.');
@@ -93,9 +113,10 @@ async function refresh(){
  if(me.status==='fulfilled'){account=me.value.user;picks=new Set(account?me.value.picks||[]:[]);}
  else{account=null;picks=new Set();showMessage(message,'Account services could not be reached. Please retry before signing in.',true);}
  renderAccountNav(account);renderCatalog();
+ $('#project-grid').setAttribute('aria-busy','false');
   const authState=new URLSearchParams(location.search).get('auth');
-  if(authState==='success'&&account){history.replaceState(null,'',location.pathname+location.hash);showMessage(message,'Signed in with GitHub. You can view project status or submit metadata for review.');}
-  else if(authState){history.replaceState(null,'',location.pathname+location.hash);showMessage(message,'GitHub sign-in was not completed. Please try again.',true);}
+  if(authState==='success'&&account){const authUrl=new URL(location.href);authUrl.searchParams.delete('auth');history.replaceState(null,'',authUrl);showMessage(message,'Signed in with GitHub. You can view project status or submit metadata for review.');}
+  else if(authState){const authUrl=new URL(location.href);authUrl.searchParams.delete('auth');history.replaceState(null,'',authUrl);showMessage(message,'GitHub sign-in was not completed. Please try again.',true);}
 }
 function openSubmission(project=null){
  if(!account){openAuth();return;}
@@ -119,8 +140,9 @@ $('#submission-form').addEventListener('submit',async event=>{
  finally{submit.disabled=false;}
 });
 $('#project-grid').addEventListener('click',async event=>{
- if(event.target.closest('#clear-search')){$('#search').value='';activeFilter='all';$$('.filter').forEach(item=>{item.classList.toggle('active',item.dataset.filter==='all');item.setAttribute('aria-pressed',String(item.dataset.filter==='all'));});renderCatalog();return;}
- const copy=event.target.closest('[data-copy-address]');if(copy){try{await navigator.clipboard.writeText(copy.dataset.copyAddress);copy.textContent='Copied';}catch{copy.textContent='Copy unavailable';}return;}
+ if(event.target.closest('#empty-submit')){openSubmission();return;}
+ if(event.target.closest('#clear-search')){$('#search').value='';activeFilter='all';updateCatalogControls();saveCatalogState();renderCatalog();$('#search').focus();return;}
+ const copy=event.target.closest('[data-copy-address]');if(copy){try{await navigator.clipboard.writeText(copy.dataset.copyAddress);copy.textContent='Copied';}catch{const range=document.createRange();range.selectNodeContents(copy.closest('.direct-connect').querySelector('code'));const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);copy.textContent='Address selected: Ctrl/Cmd+C';}return;}
  const button=event.target.closest('[data-pick]');if(!button)return;
  if(!account){openAuth();return;}
  const id=button.dataset.pick;button.disabled=true;
@@ -128,9 +150,10 @@ $('#project-grid').addEventListener('click',async event=>{
  catch(error){showMessage($('#catalog-message'),error.message,true);}
  finally{button.disabled=false;}
 });
-$('#filters').addEventListener('click',event=>{const button=event.target.closest('[data-filter]');if(!button)return;activeFilter=button.dataset.filter;$$('.filter').forEach(item=>{item.classList.toggle('active',item===button);item.setAttribute('aria-pressed',String(item===button));});renderCatalog();});
-$('#search').addEventListener('input',renderCatalog);
-$('#sort').addEventListener('click',()=>{sortByNewest=!sortByNewest;$('#sort').innerHTML=sortByNewest?'NEWEST <span>⌄</span>':'MOST PICKED <span>⌃</span>';renderCatalog();});
+$('#filters').addEventListener('click',event=>{const button=event.target.closest('[data-filter]');if(!button)return;activeFilter=button.dataset.filter;updateCatalogControls();saveCatalogState();renderCatalog();});
+$('#search').addEventListener('input',()=>{saveCatalogState();renderCatalog();});
+$('#sort').addEventListener('click',()=>{sortByNewest=!sortByNewest;updateCatalogControls();saveCatalogState();renderCatalog();});
+window.addEventListener('popstate',()=>{restoreCatalogState();renderCatalog();});
 ['hero-submit','bottom-submit','closing-submit'].forEach(id=>$('#'+id).addEventListener('click',()=>openSubmission()));
 $('#login-open').addEventListener('click',openAuth);
 $$('.modal-close').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
@@ -145,7 +168,7 @@ $('#moderation-queue').addEventListener('click',async event=>{
  try{await api(`/api/mod/projects/${encodeURIComponent(button.dataset.project)}/status`,{method:'POST',body:{status:button.dataset.status,reason,assetsReviewed:card.querySelector('.asset-reviewed').checked,expectedUpdatedAt:card.dataset.updatedAt}});await openDashboard();await refresh();}
  catch(error){button.disabled=false;showMessage($('#dashboard-user'),error.message,true);}
 });
-document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#search').focus();}});
+document.addEventListener('keydown',event=>{if(!document.querySelector('dialog[open]')&&(event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#search').focus();}});
 $('#catalog-retry').addEventListener('click',async event=>{event.currentTarget.disabled=true;try{await refresh();}finally{$('#catalog-retry').disabled=false;}});
 $('#my-projects').addEventListener('click',async event=>{
  const edit=event.target.closest('[data-edit]');if(edit){const project=ownerProjects.find(item=>item.id===edit.dataset.edit);if(project){$('#dashboard-dialog').close();openSubmission(project);}return;}
@@ -155,4 +178,5 @@ $('#my-projects').addEventListener('click',async event=>{
  try{await api(`/api/projects/${encodeURIComponent(withdraw.dataset.withdraw)}`,{method:'DELETE'});await openDashboard();await refresh();}
  catch(error){showMessage($('#dashboard-user'),error.message,true);withdraw.disabled=false;}
 });
+restoreCatalogState();
 refresh();

@@ -2,6 +2,12 @@
 
 > **Work in progress / early development.** The website is live at https://rustports.com. We are sharing the spreadsheet and reverse-engineering toolkit while it is still being developed. We hope to complete the broader workflow soon, but there is no committed release date. The native Jcode snapshot is experimental, not a stable release.
 
+## Start here
+
+- [Guided first run and learning hub](https://rustports.com/resources)
+- [Researched 64-item improvement roadmap](IMPROVEMENTS.md)
+- [Contribute a focused improvement](CONTRIBUTING.md)
+
 ## Public developer resources
 
 - [Start with the toolkit](toolkit/README.md)
@@ -35,11 +41,13 @@ npm run preview:test
 
 Visit `http://127.0.0.1:8787/__test/login?user=1` for the synthetic creator, or `user=2` for the synthetic moderator. The fixture binds only to localhost, uses ephemeral data, and is never deployed. Repository verification accepts only `https://github.com/maker/game` in this fixture. It does not exercise real GitHub consent.
 
+For another local session, use `set "RP_PREVIEW_PORT=18937" && npm run preview:test` in Command Prompt. The frontend uses that port and the isolated Worker uses the next port. Choose two free ports rather than stopping another session's server.
+
 For real local OAuth, run the Worker on port 8788 with `SITE_ORIGIN` set to the exact local frontend origin and a separate development GitHub app. Never use production secrets in test fixtures.
 
 ## Deploy
 
-The public website artifact is **dist/**, not the repository root. The build explicitly copies ten public files and refuses unexpected output files. Never upload `api/`, credentials, package files, tests, `toolkit/`, or `.wrangler/` to Pages.
+The public website artifact is **dist/**, not the repository root. The build explicitly copies eleven public files and refuses unexpected output files. Never upload `api/`, credentials, package files, tests, `toolkit/`, or `.wrangler/` to Pages.
 
 ```cmd
 npm test
