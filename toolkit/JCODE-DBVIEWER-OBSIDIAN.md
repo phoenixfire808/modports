@@ -2,6 +2,16 @@
 
 **Status: implementation guide for the current experimental Jcode SQLite workflow.** Check the version and release notes before using this with important project data. This method does not promise zero behavioral drift, automatic game reconstruction, legal clearance, or a fixed token saving.
 
+## Download and first run
+
+[Download the Windows x64 JcodeSS + DBViewer preview](https://github.com/phoenixfire808/jcode-dev/releases/tag/jcodess-0.89.2-obsidian-preview). Choose the ZIP, extract it into a new folder, and read `README-FIRST.txt`. It includes both executables, launchers, licenses and SHA-256 checksums. This is an **unoptimized test build**, not a stable release. Keep your normal Jcode installation unchanged.
+
+Open exactly one Obsidian vault before using JcodeSS for automatic local vault selection. Merely installing Obsidian is not enough to identify your intended vault. Multiple open vaults require explicit selection. Memory notes synchronize when memory is saved or recalled, not while Jcode is closed. The dedicated DBViewer remains a separate application for structured SQLite records.
+
+Verified for this preview: 5/5 focused Obsidian sync tests, successful Windows executable build, matching hashes for every packaged payload, and packaged CLI help plus disposable SQLite initialization/listing. Full interactive model conversations, live concurrent vault edits and cross-platform behavior remain unverified.
+
+ZIP SHA-256: `1e2feedd776524b9419e404b69ebe107843d234fabdeb4a38206a01967c4237e`.
+
 ## What is authoritative?
 
 Use one writable authority per project's structured behavioral records:
