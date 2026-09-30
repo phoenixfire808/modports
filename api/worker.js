@@ -102,6 +102,15 @@ function err(request, env, status, message) {
 function exactOrigin(request, env) {
   return request.headers.get("Origin") === siteOrigin(env);
 }
+async function hasRequestContent(request) {
+  const reader = request.body?.getReader();
+  if (!reader) return false;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) return false;
+    if (value.byteLength) { await reader.cancel(); return true; }
+  }
+}
 async function bodyJson(request) {
   const type = (request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
   if (type !== "application/json") return { error: "This endpoint accepts JSON text only. File uploads are not accepted." };
@@ -161,6 +170,7 @@ async function publicRepo(owner, name) {
   const response = await fetch(endpoint, {
     headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "RustPorts-community-index" },
     redirect: "manual",
+    signal: AbortSignal.timeout(10000),
   });
   if (response.status !== 200) return null;
   const repo = await response.json();
@@ -199,7 +209,18 @@ async function authStart(request, env, url) {
   if (type !== "application/x-www-form-urlencoded") return err(request, env, 415, "Expected the account terms form.");
   const length = Number(request.headers.get("Content-Length") || 0);
   if (length > 2048) return err(request, env, 413, "Request is too large.");
-  const form = await request.formData();
+  const reader = request.body?.getReader();
+  let text = "";
+  let size = 0;
+  const decoder = new TextDecoder();
+  if (reader) while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > 2048) { await reader.cancel(); return err(request, env, 413, "Request is too large."); }
+    text += decoder.decode(value, { stream: true });
+  }
+  const form = new URLSearchParams(text + decoder.decode());
   if (form.get("termsAccepted") !== "yes" || form.get("termsVersion") !== TERMS_VERSION) return err(request, env, 400, "Accept the current Terms of Service before creating or accessing an account.");
   const state = randomToken();
   const verifier = randomToken(48);
@@ -223,12 +244,14 @@ async function authCallback(request, env, url) {
   const jar = cookies(request);
   if (!/^[a-f0-9]{64}$/.test(state) || !code || code.length > 512 || !equalText(state, jar.rp_oauth_state || "")) return redirect(`${siteOrigin(env)}/?auth=failed`, { setCookies: [clearCookie("rp_oauth_state", url, { path: "/auth" })] });
   const stateHash = await sha256(state);
-  const attempt = await env.DB.prepare("SELECT * FROM oauth_attempts WHERE state_hash=?1").bind(stateHash).first();
-  await env.DB.prepare("DELETE FROM oauth_attempts WHERE state_hash=?1").bind(stateHash).run();
+  // Consume once, atomically, so concurrent callbacks cannot reuse the attempt.
+  const attempt = await env.DB.prepare("DELETE FROM oauth_attempts WHERE state_hash=?1 RETURNING *").bind(stateHash).first();
   if (!attempt || attempt.expires_at <= new Date().toISOString() || attempt.terms_version !== TERMS_VERSION) return redirect(`${siteOrigin(env)}/?auth=expired`, { setCookies: [clearCookie("rp_oauth_state", url, { path: "/auth" })] });
 
   const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
+    signal: AbortSignal.timeout(10000),
+    redirect: "manual",
     headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "RustPorts-community-index" },
     body: new URLSearchParams({ client_id: env.GITHUB_CLIENT_ID, client_secret: githubClientSecret(env), code, redirect_uri: env.GITHUB_CALLBACK_URL || "https://api.rustports.com/auth/github/callback", code_verifier: attempt.code_verifier }),
   });
@@ -237,8 +260,9 @@ async function authCallback(request, env, url) {
   if (typeof tokenData.access_token !== "string" || tokenData.scope && !tokenData.scope.split(",").includes("read:user")) return redirect(`${siteOrigin(env)}/?auth=failed`, { setCookies: [clearCookie("rp_oauth_state", url, { path: "/auth" })] });
 
   const profileResponse = await fetch("https://api.github.com/user", {
+    signal: AbortSignal.timeout(10000),
     headers: { Authorization: `Bearer ${tokenData.access_token}`, Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "RustPorts-community-index" },
-    redirect: "error",
+    redirect: "manual",
   });
   if (!profileResponse.ok) return redirect(`${siteOrigin(env)}/?auth=failed`, { setCookies: [clearCookie("rp_oauth_state", url, { path: "/auth" })] });
   const profile = await profileResponse.json();
@@ -278,6 +302,10 @@ async function apiRoute(request, env, url) {
       Vary: "Origin",
     } });
   }
+  if (request.method === "GET" && url.pathname === "/api/health") {
+    await env.DB.prepare("SELECT connection_address FROM projects LIMIT 1").all();
+    return apiJson(request, env, { ok: true, version: "launch-2026-09-30", authConfigured: Boolean(env.GITHUB_CLIENT_ID && githubClientSecret(env)) });
+  }
   if (request.method === "GET" && url.pathname === "/api/catalog") {
     const result = await env.DB.prepare(`SELECT p.id, p.name, p.summary, p.category, p.development_stage, p.repo_url, p.connection_address, p.repo_owner, p.repo_name, p.repo_owner_verified, p.published_at,
       u.github_login AS creator, COUNT(s.github_id) AS picks
@@ -296,7 +324,7 @@ async function apiRoute(request, env, url) {
     if (!user) return apiJson(request, env, { user: null });
     const [acceptance, projects] = await Promise.all([
       env.DB.prepare("SELECT terms_version, accepted_at FROM terms_acceptances WHERE github_id=?1 ORDER BY accepted_at DESC LIMIT 1").bind(user.githubId).first(),
-      env.DB.prepare("SELECT id, name, status, status_reason, repo_url, connection_address, development_stage, created_at, updated_at FROM projects WHERE github_id=?1 ORDER BY updated_at DESC LIMIT 100").bind(user.githubId).all(),
+      env.DB.prepare("SELECT id, name, summary, category, status, status_reason, repo_url, connection_address, development_stage, created_at, updated_at FROM projects WHERE github_id=?1 ORDER BY updated_at DESC LIMIT 100").bind(user.githubId).all(),
     ]);
     const owns = await env.DB.prepare("SELECT project_id FROM selections WHERE github_id=?1").bind(user.githubId).all();
     return apiJson(request, env, { user: { githubId: user.githubId, login: user.login, isModerator: user.isModerator, terms: acceptance || null }, projects: projects.results || [], picks: (owns.results || []).map(row => row.project_id) });
@@ -310,10 +338,17 @@ async function apiRoute(request, env, url) {
       "Set-Cookie": [clearCookie("rp_session", url), clearCookie("rp_csrf", url, { httpOnly: false })],
     });
   }
-  if (request.method === "POST" && url.pathname === "/api/projects") {
+  const editMatch = url.pathname.match(/^\/api\/projects\/([0-9a-f-]{36})$/i);
+  if ((request.method === "POST" && url.pathname === "/api/projects") || (request.method === "PUT" && editMatch)) {
     const auth = await requireSession(request, env);
     if (auth.response) return auth.response;
     if (!(await requireCsrf(request, env, auth.user))) return err(request, env, 403, "Request could not be verified.");
+    let existing = null;
+    if (editMatch) {
+      existing = await env.DB.prepare("SELECT id, status, updated_at FROM projects WHERE id=?1 AND github_id=?2").bind(editMatch[1], auth.user.githubId).first();
+      if (!existing) return err(request, env, 404, "Project not found.");
+      if (["removed", "rejected"].includes(existing.status)) return err(request, env, 409, "This listing cannot be edited. Contact the moderation team.");
+    }
     const parsed = await bodyJson(request);
     if (parsed.error) return err(request, env, 400, parsed.error);
     const data = parsed.data;
@@ -335,7 +370,7 @@ async function apiRoute(request, env, url) {
     }
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const recent = await env.DB.prepare("SELECT COUNT(*) AS count FROM projects WHERE github_id=?1 AND created_at>?2").bind(auth.user.githubId, yesterday).first();
-    if (Number(recent?.count || 0) >= PROJECT_LIMIT_PER_DAY) return err(request, env, 429, "Submission limit reached. Try again later.");
+    if (!existing && Number(recent?.count || 0) >= PROJECT_LIMIT_PER_DAY) return err(request, env, 429, "Submission limit reached. Try again later.");
     let metadata;
     try { metadata = await publicRepo(repo.owner, repo.name); }
     catch { return err(request, env, 502, "GitHub could not verify that public repository right now."); }
@@ -343,14 +378,30 @@ async function apiRoute(request, env, url) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const ownerVerified = metadata.ownerType === "User" && metadata.ownerId === auth.user.githubId ? 1 : 0;
+    if (existing) {
+      const result = await env.DB.prepare(`UPDATE projects SET name=?1, summary=?2, category=?3, development_stage=?4, repo_url=?5, repo_owner=?6, repo_name=?7, repo_owner_verified=?8, connection_address=?9, status='submitted', status_reason='Updated by creator. Waiting for a new review.', published_at=NULL, updated_at=?10 WHERE id=?11 AND github_id=?12 AND status=?13 AND updated_at=?14`)
+        .bind(name.value, summary.value, data.category, data.developmentStage, repo.url, metadata.ownerLogin, metadata.name, ownerVerified, connectionAddress, now, existing.id, auth.user.githubId, existing.status, existing.updated_at).run();
+      if (!result.meta.changes) return err(request, env, 409, "The listing changed while you were editing. Refresh your dashboard and try again.");
+      return apiJson(request, env, { project: { id: existing.id, name: name.value, status: "submitted" } });
+    }
     await env.DB.prepare(`INSERT INTO projects (id, github_id, name, summary, category, development_stage, repo_url, repo_owner, repo_name, repo_owner_verified, connection_address, status, status_reason, created_at, updated_at)
       VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'submitted','Waiting for moderator review.',?12,?12)`)
       .bind(id, auth.user.githubId, name.value, summary.value, data.category, data.developmentStage, repo.url, metadata.ownerLogin, metadata.name, ownerVerified, connectionAddress, now).run();
     return apiJson(request, env, { project: { id, name: name.value, status: "submitted", statusReason: "Waiting for moderator review.", repositoryUrl: repo.url, connectionAddress, ownerVerified: Boolean(ownerVerified) } }, 201);
   }
+  if (request.method === "DELETE" && editMatch) {
+    const auth = await requireSession(request, env);
+    if (auth.response) return auth.response;
+    if (!(await requireCsrf(request, env, auth.user))) return err(request, env, 403, "Request could not be verified.");
+    if (await hasRequestContent(request)) return err(request, env, 415, "This endpoint does not accept a body.");
+    const result = await env.DB.prepare("UPDATE projects SET status='removed', status_reason='Withdrawn by creator.', published_at=NULL, updated_at=?1 WHERE id=?2 AND github_id=?3 AND status!='removed'")
+      .bind(new Date().toISOString(), editMatch[1], auth.user.githubId).run();
+    if (!result.meta.changes) return err(request, env, 404, "Active project not found.");
+    return apiJson(request, env, { ok: true });
+  }
   const pickMatch = url.pathname.match(/^\/api\/projects\/([0-9a-f-]{36})\/pick$/i);
   if (pickMatch && ["POST", "DELETE"].includes(request.method)) {
-    if (request.body !== null) return err(request, env, 415, "This endpoint does not accept a request body or files.");
+    if (await hasRequestContent(request)) return err(request, env, 415, "This endpoint does not accept a request body or files.");
     const auth = await requireSession(request, env);
     if (auth.response) return auth.response;
     if (!(await requireCsrf(request, env, auth.user))) return err(request, env, 403, "Request could not be verified.");
@@ -377,14 +428,16 @@ async function apiRoute(request, env, url) {
     if (!(await requireCsrf(request, env, auth.user))) return err(request, env, 403, "Request could not be verified.");
     const parsed = await bodyJson(request);
     if (parsed.error) return err(request, env, 400, parsed.error);
-    const { status, reason, assetsReviewed } = parsed.data || {};
+    if (!parsed.data || typeof parsed.data !== "object" || Array.isArray(parsed.data) || Object.keys(parsed.data).some(key => !["status", "reason", "assetsReviewed", "expectedUpdatedAt"].includes(key))) return err(request, env, 400, "Only moderation status, reason, and review attestation are accepted.");
+    const { status, reason, assetsReviewed, expectedUpdatedAt } = parsed.data;
     if (!MODERATOR_STATUSES.has(status)) return err(request, env, 400, "Choose a valid moderation status.");
     const didAssetReview = assetsReviewed === true;
     if (["approved", "published"].includes(status) && !didAssetReview) return err(request, env, 400, "Before approval, confirm you manually reviewed the public GitHub project page and found no copied source-game or third-party assets.");
     const cleanReason = cleanText(reason, 500, "Moderation note");
     if (cleanReason.error) return err(request, env, 400, cleanReason.error);
-    const project = await env.DB.prepare("SELECT id, status FROM projects WHERE id=?1").bind(moderationMatch[1]).first();
+    const project = await env.DB.prepare("SELECT id, status, updated_at FROM projects WHERE id=?1").bind(moderationMatch[1]).first();
     if (!project) return err(request, env, 404, "Project not found.");
+    if (typeof expectedUpdatedAt !== "string" || expectedUpdatedAt !== project.updated_at) return err(request, env, 409, "This listing changed since you loaded it. Refresh the queue and review the current metadata.");
     const allowed = {
       submitted: ["under_review", "changes_requested", "rejected"],
       under_review: ["changes_requested", "approved", "rejected"],
@@ -397,16 +450,24 @@ async function apiRoute(request, env, url) {
     if (!allowed[project.status]?.includes(status)) return err(request, env, 409, `Cannot change ${project.status} to ${status}.`);
     const now = new Date().toISOString();
     const batch = [
-      env.DB.prepare("UPDATE projects SET status=?1, status_reason=?2, updated_at=?3, published_at=CASE WHEN ?1='published' THEN ?3 ELSE NULL END WHERE id=?4").bind(status, cleanReason.value, now, project.id),
-      env.DB.prepare("INSERT INTO moderation_events (id, project_id, moderator_github_id, from_status, to_status, reason, created_at, assets_reviewed) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)").bind(crypto.randomUUID(), project.id, auth.user.githubId, project.status, status, cleanReason.value, now, didAssetReview ? 1 : 0),
+      env.DB.prepare("INSERT INTO moderation_events (id, project_id, moderator_github_id, from_status, to_status, reason, created_at, assets_reviewed) SELECT ?1,id,?2,status,?3,?4,?5,?6 FROM projects WHERE id=?7 AND status=?8 AND updated_at=?9").bind(crypto.randomUUID(), auth.user.githubId, status, cleanReason.value, now, didAssetReview ? 1 : 0, project.id, project.status, project.updated_at),
+      env.DB.prepare("UPDATE projects SET status=?1, status_reason=?2, updated_at=?3, published_at=CASE WHEN ?1='published' THEN ?3 ELSE NULL END WHERE id=?4 AND status=?5 AND updated_at=?6").bind(status, cleanReason.value, now, project.id, project.status, project.updated_at),
     ];
-    await env.DB.batch(batch);
+    const result = await env.DB.batch(batch);
+    if (result[1]?.meta?.changes === 0) return err(request, env, 409, "This listing changed during review. Refresh the queue before reviewing it again.");
     return apiJson(request, env, { ok: true, status, reason: cleanReason.value });
   }
   return err(request, env, 404, "Not found.");
 }
 
 export default {
+  async scheduled(controller, env) {
+    const now = new Date().toISOString();
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM sessions WHERE expires_at<=?1").bind(now),
+      env.DB.prepare("DELETE FROM oauth_attempts WHERE expires_at<=?1").bind(now),
+    ]);
+  },
   async fetch(request, env) {
     const url = new URL(request.url);
     try {

@@ -1,0 +1,9 @@
+{
+  "name": "rustports-site",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "npm --prefix api test && node --test tests/static.test.mjs",
+    "preview:test": "npm run build && node api/scripts/preview.mjs"
+  }
+}

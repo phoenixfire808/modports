@@ -1,5 +1,17 @@
 # RustPorts research notes
 
+## Launch hardening, 2026-09-30
+
+- Reused Cloudflare's D1 test binding pattern: https://developers.cloudflare.com/workers/testing/miniflare/storage/d1/
+- Reused Pages `_headers` configuration: https://developers.cloudflare.com/pages/configuration/headers/
+- Kept existing Cloudflare Wrangler deployment rather than introducing another provider. Integration discovery returned no suitable catalog deployment tool.
+- Pinned Wrangler 4.144.0 and its matching Miniflare 5.20260926.1-alpha. This release exports `convertV4MiniflareOptions`, used to adapt the documented Miniflare v4 options to v5. npm audit reported zero vulnerabilities.
+- Added actual Worker/workerd + SQLite-backed D1 integration tests, rather than relying on the previous SQL-string stubs. GitHub responses remain mocked. Tests reproduced an empty POST body-stream bug in picks and an unsupported `redirect: error` OAuth runtime failure, then passed after fixes.
+- Browser checks used the actual frontend and Worker with disposable local identities: submit privately, review/approve/publish, pick, search reset, and edit back into private review. Checked 390px viewport without document overflow. These do not substitute for real production GitHub consent or real mail delivery.
+- Strictly allowlisted public build prevents source/config/credentials from entering Pages uploads. Removed external font requests so CSP can remain self-only for script/style/font and privacy copy does not omit a font provider.
+- Cloudflare UI showed rights forwarding active and its destination verified. Wrangler's limited deployment authorization completed successfully. Neither observation proves inbox delivery.
+
+
 Reviewed for the account, repository-linking, and moderation feature work on 2026-09-30.
 
 ## Reusable implementation sources

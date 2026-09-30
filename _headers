@@ -1,0 +1,9 @@
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src https://api.rustports.com; form-action https://api.rustports.com https://github.com; frame-ancestors 'none'; base-uri 'none'; object-src 'none'
+  Cache-Control: public, max-age=0, must-revalidate
+https://rustports.pages.dev/*
+  X-Robots-Tag: noindex

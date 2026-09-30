@@ -9,6 +9,7 @@
     { "pattern": "api.rustports.com", "custom_domain": true }
   ],
   "observability": { "enabled": true },
+  "triggers": { "crons": ["17 4 * * *"] },
   "d1_databases": [
     {
       "binding": "DB",

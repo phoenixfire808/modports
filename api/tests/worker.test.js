@@ -17,7 +17,7 @@ const db = {
       async first(){
         if(sql.includes('FROM sessions'))return session;
         if(sql.includes('COUNT(*) AS count FROM projects'))return {count:0};
-        if(sql.includes('SELECT id, status FROM projects'))return {id:'11111111-1111-4111-8111-111111111111',status:'under_review'};
+        if(sql.includes('SELECT id, status, updated_at FROM projects'))return {id:'11111111-1111-4111-8111-111111111111',status:'under_review',updated_at:'2026-09-30T00:00:00.000Z'};
         return null;
       },
       async all(){
@@ -111,7 +111,7 @@ test('moderator queue is denied unless the GitHub numeric ID is allowlisted',asy
 
 test('approval requires a human asset-review attestation and records the audit column',async()=>{
  env.MODERATOR_GITHUB_IDS='123456';
- const payload={status:'approved',reason:'Reviewed linked public repository.'};
+ const payload={status:'approved',reason:'Reviewed linked public repository.',expectedUpdatedAt:'2026-09-30T00:00:00.000Z'};
  const missing=await call('/api/mod/projects/11111111-1111-4111-8111-111111111111/status',{method:'POST',headers:authenticatedHeaders(),body:JSON.stringify(payload)});
  assert.equal(missing.status,400);
  assert.match((await missing.json()).error,/manually reviewed/i);
