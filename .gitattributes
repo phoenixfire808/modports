@@ -1,0 +1,6 @@
+# Native draft manifest hashes cover the exact exported bytes.
+toolkit/native-jcode/snapshot/** -text
+toolkit/native-jcode/snapshot/manifest.json text eol=lf
+# Single-space blank context lines are part of the unified patch format.
+toolkit/native-jcode/snapshot/*.patch whitespace=-blank-at-eol
+*.xlsx binary

@@ -1,0 +1,472 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index ab2bfe1..9003323 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -143,7 +143,7 @@ version = "1.1.5"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
+ dependencies = [
+- "windows-sys 0.60.2",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -154,7 +154,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
+ dependencies = [
+  "anstyle",
+  "once_cell_polyfill",
+- "windows-sys 0.60.2",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -185,7 +185,7 @@ dependencies = [
+  "objc2-foundation",
+  "parking_lot",
+  "percent-encoding",
+- "windows-sys 0.59.0",
++ "windows-sys 0.60.2",
+  "x11rb",
+ ]
+ 
+@@ -266,6 +266,16 @@ dependencies = [
+  "syn 2.0.117",
+ ]
+ 
++[[package]]
++name = "atoi_simd"
++version = "0.18.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f3cdb3708a128e559a30fb830e8a77a5022ee6902806925c216658652b452a44"
++dependencies = [
++ "debug_unsafe",
++ "rustversion",
++]
++
+ [[package]]
+ name = "atomic"
+ version = "0.6.1"
+@@ -1101,6 +1111,23 @@ dependencies = [
+  "either",
+ ]
+ 
++[[package]]
++name = "calamine"
++version = "0.36.1"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "5fa68281b1a76b54a62156474adb06bb380a67e07dd60656e3217152b42183f3"
++dependencies = [
++ "atoi_simd",
++ "byteorder",
++ "codepage",
++ "encoding_rs",
++ "fast-float2",
++ "log",
++ "quick-xml",
++ "serde",
++ "zip",
++]
++
+ [[package]]
+ name = "castaway"
+ version = "0.2.4"
+@@ -1274,6 +1301,15 @@ version = "0.5.4"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
+ 
++[[package]]
++name = "codepage"
++version = "0.1.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "bdff162541cd8b79de82e2edcc7eff3a8c2a6dc3d75152636028f96d93de3b26"
++dependencies = [
++ "encoding_rs",
++]
++
+ [[package]]
+ name = "color_quant"
+ version = "1.1.0"
+@@ -1701,6 +1737,12 @@ version = "0.3.2"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "be1e0bca6c3637f992fc1cc7cbc52a78c1ef6db076dbf1059c4323d6a2048376"
+ 
++[[package]]
++name = "debug_unsafe"
++version = "0.1.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "7eed2c4702fa172d1ce21078faa7c5203e69f5394d48cc436d25928394a867a2"
++
+ [[package]]
+ name = "deltae"
+ version = "0.3.2"
+@@ -1998,7 +2040,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
+ dependencies = [
+  "libc",
+- "windows-sys 0.59.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -2085,6 +2127,12 @@ dependencies = [
+  "regex-syntax",
+ ]
+ 
++[[package]]
++name = "fast-float2"
++version = "0.2.4"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "c6e8948ce679d00a02a94739ea185595dca7118ed04feb991127e443bd3d761f"
++
+ [[package]]
+ name = "fast-srgb8"
+ version = "1.0.0"
+@@ -2184,6 +2232,7 @@ checksum = "b375d6465b98090a5f25b1c7703f3859783755aa9a80433b36e0379a3ec2f369"
+ dependencies = [
+  "crc32fast",
+  "miniz_oxide",
++ "zlib-rs",
+ ]
+ 
+ [[package]]
+@@ -3160,6 +3209,7 @@ dependencies = [
+  "jcode-build-meta",
+  "jcode-harness-api",
+  "jcode-harness-api-server",
++ "jcode-import-core",
+  "jcode-provider-anthropic-runtime",
+  "jcode-provider-antigravity-runtime",
+  "jcode-provider-copilot-runtime",
+@@ -3506,12 +3556,14 @@ dependencies = [
+ name = "jcode-import-core"
+ version = "0.1.0"
+ dependencies = [
++ "calamine",
+  "chrono",
+  "hex",
+  "serde",
+  "serde_json",
+  "sha2 0.10.9",
+  "tempfile",
++ "toml",
+ ]
+ 
+ [[package]]
+@@ -6089,6 +6141,16 @@ version = "2.0.1"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "a993555f31e5a609f617c12db6250dedcac1b0a85076912c436e6fc9b2c8e6a3"
+ 
++[[package]]
++name = "quick-xml"
++version = "0.41.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "e660451e55124f798a69a5af3f49ccfbefbd41910eefd25caf2393e1f3473ec1"
++dependencies = [
++ "encoding_rs",
++ "memchr",
++]
++
+ [[package]]
+ name = "quinn"
+ version = "0.11.9"
+@@ -6142,7 +6204,7 @@ dependencies = [
+  "once_cell",
+  "socket2",
+  "tracing",
+- "windows-sys 0.59.0",
++ "windows-sys 0.60.2",
+ ]
+ 
+ [[package]]
+@@ -6745,7 +6807,7 @@ dependencies = [
+  "errno",
+  "libc",
+  "linux-raw-sys 0.11.0",
+- "windows-sys 0.59.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -6804,7 +6866,7 @@ dependencies = [
+  "security-framework",
+  "security-framework-sys",
+  "webpki-root-certs",
+- "windows-sys 0.59.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -7443,7 +7505,7 @@ dependencies = [
+  "getrandom 0.3.4",
+  "once_cell",
+  "rustix 1.1.3",
+- "windows-sys 0.59.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -8241,6 +8303,12 @@ dependencies = [
+  "pom",
+ ]
+ 
++[[package]]
++name = "typed-path"
++version = "0.12.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
++
+ [[package]]
+ name = "typeid"
+ version = "1.0.3"
+@@ -8885,7 +8953,7 @@ version = "0.1.11"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
+ dependencies = [
+- "windows-sys 0.52.0",
++ "windows-sys 0.61.2",
+ ]
+ 
+ [[package]]
+@@ -9641,12 +9709,44 @@ dependencies = [
+  "syn 2.0.117",
+ ]
+ 
++[[package]]
++name = "zip"
++version = "8.6.0"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
++dependencies = [
++ "crc32fast",
++ "flate2",
++ "indexmap",
++ "memchr",
++ "typed-path",
++ "zopfli",
++]
++
++[[package]]
++name = "zlib-rs"
++version = "0.5.5"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "40990edd51aae2c2b6907af74ffb635029d5788228222c4bb811e9351c0caad3"
++
+ [[package]]
+ name = "zmij"
+ version = "1.0.12"
+ source = "registry+https://github.com/rust-lang/crates.io-index"
+ checksum = "2fc5a66a20078bf1251bde995aa2fdcc4b800c70b5d92dd2c62abc5c60f679f8"
+ 
++[[package]]
++name = "zopfli"
++version = "0.8.3"
++source = "registry+https://github.com/rust-lang/crates.io-index"
++checksum = "f05cd8797d63865425ff89b5c4a48804f35ba0ce8d125800027ad6017d2b5249"
++dependencies = [
++ "bumpalo",
++ "crc32fast",
++ "log",
++ "simd-adler32",
++]
++
+ [[package]]
+ name = "zune-core"
+ version = "0.4.12"
+diff --git a/Cargo.toml b/Cargo.toml
+index b0dd8a9..d043595 100644
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -201,6 +201,7 @@ jcode-provider-anthropic-runtime = { path = "crates/jcode-provider-anthropic-run
+ jcode-provider-openai-runtime = { path = "crates/jcode-provider-openai-runtime" }
+ jcode-provider-grok-build-runtime = { path = "crates/jcode-provider-grok-build-runtime" }
+ jcode-selfdev-types = { path = "crates/jcode-selfdev-types" }
++jcode-import-core = { path = "crates/jcode-import-core" }
+ 
+ # Archive extraction (for auto-update)
+ tempfile = "3"
+diff --git a/crates/jcode-import-core/Cargo.toml b/crates/jcode-import-core/Cargo.toml
+index 168d4b8..8fc1c1f 100644
+--- a/crates/jcode-import-core/Cargo.toml
++++ b/crates/jcode-import-core/Cargo.toml
+@@ -5,11 +5,13 @@ edition = "2024"
+ publish = false
+ 
+ [dependencies]
++calamine = "0.36.1"
+ chrono = { version = "0.4", features = ["serde"] }
+ hex = "0.4"
+ serde = { version = "1", features = ["derive"] }
+ serde_json = "1"
+ sha2 = "0.10"
++tempfile = "3"
++toml = "0.8"
+ 
+ [dev-dependencies]
+-tempfile = "3"
+diff --git a/crates/jcode-import-core/src/lib.rs b/crates/jcode-import-core/src/lib.rs
+index c76ba22..6c46be0 100644
+--- a/crates/jcode-import-core/src/lib.rs
++++ b/crates/jcode-import-core/src/lib.rs
+@@ -8,6 +8,7 @@ use std::io::{BufRead, BufReader};
+ use std::path::{Path, PathBuf};
+ 
+ pub mod repo_ranking;
++pub mod workbook;
+ 
+ pub type ImportCoreResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+ 
+diff --git a/src/cli/args.rs b/src/cli/args.rs
+index f36096b..08053c4 100644
+--- a/src/cli/args.rs
++++ b/src/cli/args.rs
+@@ -468,6 +468,10 @@ pub(crate) enum Command {
+     #[command(subcommand)]
+     Model(ModelCommand),
+ 
++    /// Inspect, validate, and generate matrices from configured project workbooks
++    #[command(subcommand)]
++    Workbook(WorkbookCommand),
++
+     /// Show live verification coverage. With no provider/model, prints the full coverage summary.
+     #[command(name = "provider-test-coverage", alias = "model-status")]
+     ProviderTestCoverage {
+@@ -596,6 +600,41 @@ pub(crate) enum Command {
+     },
+ }
+ 
++#[derive(Subcommand, Debug)]
++pub(crate) enum WorkbookCommand {
++    /// Inspect workbook sheets and a small bounded row preview
++    Inspect {
++        /// Path to an Excel/OpenDocument workbook
++        input: String,
++
++        /// Emit JSON instead of a human-readable summary
++        #[arg(long)]
++        json: bool,
++    },
++
++    /// Validate a mapped workbook and generate its canonical JSON matrix
++    Build {
++        /// Project mapping TOML (default: jcode-workbook.toml)
++        #[arg(long)]
++        config: Option<String>,
++
++        /// Emit JSON instead of a human-readable summary
++        #[arg(long)]
++        json: bool,
++    },
++
++    /// Validate the mapped workbook and fail if the generated matrix is stale
++    Check {
++        /// Project mapping TOML (default: jcode-workbook.toml)
++        #[arg(long)]
++        config: Option<String>,
++
++        /// Emit JSON instead of a human-readable summary
++        #[arg(long)]
++        json: bool,
++    },
++}
++
+ #[derive(Subcommand, Debug)]
+ pub(crate) enum TelemetryCommand {
+     /// Show the current telemetry state without creating an anonymous ID
+diff --git a/src/cli/args/tests.rs b/src/cli/args/tests.rs
+index 706576f..5b5136c 100644
+--- a/src/cli/args/tests.rs
++++ b/src/cli/args/tests.rs
+@@ -1044,3 +1044,29 @@ fn api_stdio_accepts_alias_and_daemon_socket_but_not_api_socket() {
+         );
+     }
+ }
++
++#[test]
++fn workbook_commands_parse_without_starting_session_commands() {
++    let inspect =
++        Args::try_parse_from(["jcode", "workbook", "inspect", "model.xlsx", "--json"]).unwrap();
++    assert!(matches!(
++        inspect.command,
++        Some(Command::Workbook(WorkbookCommand::Inspect { input, json: true })) if input == "model.xlsx"
++    ));
++
++    let build =
++        Args::try_parse_from(["jcode", "workbook", "build", "--config", "project.toml"]).unwrap();
++    assert!(matches!(
++        build.command,
++        Some(Command::Workbook(WorkbookCommand::Build { config: Some(config), json: false })) if config == "project.toml"
++    ));
++
++    let check = Args::try_parse_from(["jcode", "workbook", "check"]).unwrap();
++    assert!(matches!(
++        check.command,
++        Some(Command::Workbook(WorkbookCommand::Check {
++            config: None,
++            json: false
++        }))
++    ));
++}
+diff --git a/src/cli/dispatch.rs b/src/cli/dispatch.rs
+index 155dbdc..0f55046 100644
+--- a/src/cli/dispatch.rs
++++ b/src/cli/dispatch.rs
+@@ -78,6 +78,9 @@ pub(crate) async fn run_main(mut args: Args) -> Result<()> {
+         // Do not run local resume lookup, provider bootstrap, or self-dev setup.
+         return super::ssh::run(args).await;
+     }
++    if let Some(Command::Workbook(command)) = args.command.take() {
++        return super::workbook::run(command);
++    }
+     // Import is a narrow stdin-only credential operation. Do not trigger config
+     // migrations, provider discovery, or unrelated credential imports first.
+     if let Some(Command::Auth(AuthCommand::Import { json, .. })) = &args.command {
+@@ -635,6 +638,9 @@ pub(crate) async fn run_main(mut args: Args) -> Result<()> {
+         Some(Command::Menubar { once, json }) => {
+             commands::run_menubar_command(once, json)?;
+         }
++        Some(Command::Workbook(_)) => {
++            unreachable!("workbook commands are handled before bootstrap")
++        }
+         None => run_default_command(args).await?,
+     }
+ 
+diff --git a/src/cli/mod.rs b/src/cli/mod.rs
+index ff9076b..a0348fd 100644
+--- a/src/cli/mod.rs
++++ b/src/cli/mod.rs
+@@ -22,3 +22,4 @@ pub mod startup;
+ pub mod telemetry;
+ pub mod terminal;
+ pub mod tui_launch;
++pub mod workbook;
+diff --git a/src/cli/proctitle.rs b/src/cli/proctitle.rs
+index cffcae0..330aa76 100644
+--- a/src/cli/proctitle.rs
++++ b/src/cli/proctitle.rs
+@@ -58,6 +58,7 @@ pub(crate) fn initial_title(args: &Args) -> String {
+         Some(Command::Browser { .. }) => "jcode browser".to_string(),
+         Some(Command::Replay { .. }) => "jcode replay".to_string(),
+         Some(Command::Model(_)) => "jcode model".to_string(),
++        Some(Command::Workbook(_)) => "jcode workbook".to_string(),
+         Some(Command::ProviderTestCoverage { .. }) => "jcode provider-test-coverage".to_string(),
+         Some(Command::ProviderDoctor { .. }) => "jcode provider-doctor".to_string(),
+         Some(Command::AuthTest { .. }) => "jcode auth-test".to_string(),
+diff --git a/src/cli/startup.rs b/src/cli/startup.rs
+index 3b6190e..8dc8cd9 100644
+--- a/src/cli/startup.rs
++++ b/src/cli/startup.rs
+@@ -32,6 +32,14 @@ pub async fn run() -> Result<()> {
+         }
+         return dispatch::run_main(args).await;
+     }
++    // Workbook parsing is an offline data operation. Keep it out of normal
++    // provider discovery, telemetry, logging, config migration and server setup.
++    if args.ssh.is_none() && matches!(args.command, Some(Command::Workbook(_))) {
++        if let Some(cwd) = &args.cwd {
++            std::env::set_current_dir(cwd)?;
++        }
++        return dispatch::run_main(args).await;
++    }
+     startup_profile::init();
+ 
+     terminal::install_panic_hook();

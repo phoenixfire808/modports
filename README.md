@@ -1,5 +1,18 @@
 # RustPorts
 
+> **Work in progress / early development.** The website is live at https://rustports.com. We are sharing the spreadsheet and reverse-engineering toolkit while it is still being developed. We hope to complete the broader workflow soon, but there is no committed release date. The native Jcode snapshot is experimental, not a stable release.
+
+## Public developer resources
+
+- [Start with the toolkit](toolkit/README.md)
+- [Spreadsheet research method](toolkit/SPREADSHEET-METHOD.md)
+- [Runnable spreadsheet starter and editable workbook](toolkit/spreadsheet/README.md)
+- [Native Jcode draft, source and known blockers](toolkit/native-jcode/README.md)
+- [Official-source resource library](toolkit/RESOURCES.md)
+- [Development status](toolkit/STATUS.md)
+
+The toolkit lives on GitHub, not in the website's deployment artifact. Private configuration, sessions, credentials, and third-party game files are excluded. See toolkit license notices before reuse.
+
 RustPorts indexes original Rust-language game projects. Creators operate their own servers. The site stores text metadata, public GitHub links, and optional direct server addresses. It has no game-file uploads, asset storage, connection proxy, server probing, or game traffic relay.
 
 ## Install and validate
@@ -26,7 +39,7 @@ For real local OAuth, run the Worker on port 8788 with `SITE_ORIGIN` set to the 
 
 ## Deploy
 
-The public artifact is **dist/**, not the repository root. The build explicitly copies nine public files and refuses unexpected output files. Never upload `api/`, credentials, package files, tests, or `.wrangler/`.
+The public website artifact is **dist/**, not the repository root. The build explicitly copies ten public files and refuses unexpected output files. Never upload `api/`, credentials, package files, tests, `toolkit/`, or `.wrangler/` to Pages.
 
 ```cmd
 npm test

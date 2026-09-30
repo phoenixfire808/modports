@@ -1,5 +1,15 @@
 # RustPorts research notes
 
+## Public toolkit preparation, 2026-09-30
+
+- User requested publication now with explicit work-in-progress status, rather than waiting for the native tool to be complete. Public destination: `phoenixfire808/rustports`. No stable release or completion date is claimed.
+- Reused Drew's existing generic Entities/Fields/Rules scaffold and spreadsheet-first instructions. Published only synthetic examples, added non-overwriting template generation, literal/formula validation, atomic output and a read-only drift check. The original project and its authored workbook were not changed.
+- Preserved the native Jcode draft as an allowlisted source snapshot, not an installed runtime or entire private checkout. Upstream MIT notice retained. Verified public baseline `76df6464bf64b504996056b8934ec4ec6e8a4d2d` through GitHub. Local compaction changes were excluded. Patch applicability was checked using a private Git index without changing the shared Jcode worktree.
+- Native dispatcher and reference-helper defects found during review are documented as blockers. Snapshot checksums and applicability do not establish that this draft builds or works. The runnable Python alternative has a distinct schema, explicitly documented.
+- Consulted official Ghidra and openpyxl documentation, and linked primary tool/documentation sources in `toolkit/RESOURCES.md`. No third-party binaries, manuals, commercial game assets, or credential stores are included.
+- Python starter: 12 tests passed through real CLI calls and in-memory validation. Included workbook built successfully and passed `--check`. Website: all 23 existing tests passed with the resources page added to the ten-file static allowlist.
+- `scripts/check_publication.py` passed a heuristic scan of 58 candidate files and 63 historical blobs, XLSX archive checks, native artifact hashes, local documentation links and native patch applicability. These are bounded checks, not a guarantee of secret absence or legal clearance.
+
 ## Production verification, 2026-09-30 11:49 UTC
 
 - Worker version: `6eb6f4f5-4b50-4915-8dec-67d794d1bb06`. Final Pages deployment: `https://f937aac5.rustports.pages.dev`, serving `https://rustports.com`.

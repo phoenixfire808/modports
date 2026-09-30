@@ -1,0 +1,17 @@
+{
+  "status": "experimental-unreleased-source-snapshot",
+  "upstream": "https://github.com/1jehuang/jcode",
+  "base_commit": "76df6464bf64b504996056b8934ec4ec6e8a4d2d",
+  "sha256": {
+    "tracked-changes.patch": "95047e95c61fe0659502917dd92ca523f0e8f12c1cd9119a9366f4a882ad7d1f",
+    "new-files/crates/jcode-import-core/src/workbook.rs": "c2cb17297dad53989c349105c0269194fd320e26e1558f787c4be6b946de69b4",
+    "new-files/src/cli/workbook.rs": "49934f6b66571c351c2f8b51d45b9fc0f92b30b1ce84b91a099fc86dd2bd5ed2",
+    "new-files/crates/jcode-import-core/tests/workbook.rs": "23a85a7ad317b894004e3d24dcf90e4e90d3c3c0132a7b44c2fafde9a7796e75",
+    "new-files/crates/jcode-import-core/tests/create_xlsx_fixtures.py": "416ffb4f43cc1a59f3857abb6d7f0bfc11690605c2449cac16f48ada370a1875",
+    "new-files/docs/workbook-workflow.md": "0f94f8af1333eb3439598becc521062a1b6571b87a47b49c275b7781445ee214",
+    "new-files/crates/jcode-import-core/tests/fixtures/model.xlsx": "3079943d2f3834b72bf1e1e50943129af48e8f3fa6fb429ebb1d34a2c41083f3",
+    "new-files/crates/jcode-import-core/tests/fixtures/broken-reference.xlsx": "e54aef364d1f81523f7bfc14dd76a519b268458a9049ba658bdab4af89035c28",
+    "new-files/crates/jcode-import-core/tests/fixtures/formula.xlsx": "d50da2ae15425956b4db7b812215fc58b54b2d0ab4215cc2ea89dff0c5a8de5c",
+    "new-files/crates/jcode-import-core/tests/fixtures/wrong-type.xlsx": "2f6c4f64d4c9c75a3241fb2a9138785b9d59507f99de26282f38c5ff44dab4c1"
+  }
+}

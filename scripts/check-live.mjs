@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto';
 const site='https://rustports.com';
 const api='https://api.rustports.com';
 const digest=data=>createHash('sha256').update(data).digest('hex');
-for(const file of ['index.html','app.js','styles.css','terms.html','privacy.html','contact.html','hosting.html']){
+for(const file of ['index.html','app.js','styles.css','terms.html','privacy.html','contact.html','hosting.html','resources.html']){
  const url=`${site}/${file==='index.html'?'':file}${['app.js','styles.css'].includes(file)?'?v=launch-20260930':''}`;
  const response=await fetch(url,{signal:AbortSignal.timeout(20000),headers:{'Cache-Control':'no-cache'}});
  assert.equal(response.status,200,url);

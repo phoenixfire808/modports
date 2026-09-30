@@ -3,3 +3,7 @@ node_modules/
 .dev.vars
 .env*
 dist/
+__pycache__/
+*.pyc
+.venv/
+toolkit/spreadsheet/generated/
