@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "rustports-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-08-18",
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "rustports-metadata",
+      "database_id": "local-development-only"
+    }
+  ],
+  "vars": {
+    "SITE_ORIGIN": "https://rustports.com",
+    "GITHUB_CALLBACK_URL": "https://api.rustports.com/auth/github/callback",
+    "MODERATOR_GITHUB_IDS": ""
+  }
+}

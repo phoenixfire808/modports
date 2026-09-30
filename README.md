@@ -1,27 +1,32 @@
 # RustPorts
 
-RustPorts is a community catalog concept for original Rust-inspired parody and survival-game projects. This folder contains a responsive, static frontend preview.
+RustPorts is a community index for ports, conversions, and parodies of any game rewritten in the Rust programming language. It is about the Rust language, not the Rust game. The project is designed to accept project metadata and public GitHub repository links only. It has no asset/file upload feature and the API rejects file-oriented content.
 
-## Preview locally
+## Local development
 
-Open `index.html` in a browser, or from this directory run:
+Requirements: Node.js and npm. From the repository root:
 
 ```sh
-npx wrangler pages dev .
+cd api
+npm install
+npm run migrate:local
+npm test
+npm run dev
 ```
 
-The included project cards and activity rows are sample content. Search, status filters, sorting, picks, submission metadata, and optional cover images work in the preview and are saved in that browser's `localStorage` only.
+Serve the root frontend separately, for example `npx http-server . -p 8765`, and visit `http://127.0.0.1:8765`. The frontend points at the local Worker on port 8788 for localhost. `npm run check` validates Worker syntax. The API tests use Miniflare/Wrangler's local runtime and in-memory test bindings.
 
-## Important: not a live community service yet
+## Product safeguards
 
-This preview does **not** provide shared accounts, server-side uploads, moderation, global selection counts, or a shared database. A creator's local submission and a user's selection are visible only in that browser. Before inviting the public, add a backend and moderation workflow. A Cloudflare-based production setup could use Pages for this frontend, Workers for validated API routes, D1 for project/accounts/selection records, and R2 for reviewed images. Add authentication, rate limits, content reporting/takedown processes, server-side file validation, and a privacy/terms policy before accepting public uploads.
+- Sign-in is through GitHub OAuth with minimal `read:user` scope. OAuth state and PKCE are used, and the GitHub access token is discarded.
+- Account registration requires affirmative acceptance of the versioned Terms of Service.
+- Submissions contain short text metadata and a public `github.com/{owner}/{repo}` URL. RustPorts checks repository metadata only, never clones a repository or fetches its source/assets.
+- No project binaries, archives, images, screenshots, or other files may be uploaded. The API bounds request sizes, accepts allowlisted JSON fields, and rejects multipart/form uploads.
+- Projects remain private to their creator and moderators until approved and published. Moderators have an audited status-transition queue. Publishing requires an explicit record that an asset review was completed.
+- Community picks and published-project activity are shared through the service; contributors can see their own project status.
 
-The browser demo accepts an optional image up to 2 MB, but that file is stored locally and is not uploaded anywhere. Do not collect real personal information in this preview.
+## Production readiness
 
-## Cloudflare Pages deployment
+The repository is not itself a production deployment. Before enabling public accounts, configure a Cloudflare D1 database and apply `api/migrations`, deploy the Worker, attach `api.rustports.com`, configure the GitHub OAuth application and Worker secrets, and set the trusted moderator GitHub numeric IDs. Confirm a public contact/takedown process, privacy and account-deletion disclosures, and have qualified counsel review the Terms before inviting users. Keep the moderator allowlist empty until it is deliberately configured. Secrets must only be set using Cloudflare's secret mechanism and must never be committed.
 
-No Cloudflare account was connected and nothing has been deployed. After setting up the production backend and choosing a Cloudflare Pages project, deploy the static files with Wrangler or connect this folder to Pages. Keep real secrets out of the repository. Verify domain ownership and DNS in the Cloudflare dashboard, then attach `rustports.com` to the Pages project. Do not expose a public submission form until the backend/moderation safeguards are ready.
-
-## Asset and trademark policy
-
-RustPorts is an independent fan catalog, not affiliated with Facepunch Studios or Rust. Submissions must use assets created by their contributors or assets they are licensed to use. Do not submit Rust's models, textures, audio, maps, code, branding, or other ripped game assets. Parody or inspiration does not grant rights to copy copyrighted assets. Submissions should not imply official endorsement. This is product policy copy, not legal advice.
+The current Cloudflare Pages site and API may not match this repository until these production setup steps are completed. The Terms page is a product-policy draft, not legal advice. RustPorts is an independent community project and is not affiliated with any game publisher or rights holder.

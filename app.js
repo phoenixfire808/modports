@@ -1,59 +1,132 @@
-const starterProjects = [
-  {id:'01',name:'Long Winter',creator:'Northbound Studio',status:'playable',description:'A quiet survival story where the cold is only half the battle.',genre:'SURVIVAL · NARRATIVE',region:'CANADA',picks:42,theme:'theme-ice',art:'WHITEOUT / 01',url:''},
-  {id:'02',name:'Dustline',creator:'Morrow Works',status:'playable',description:'Make a home in a sun-blasted world that never stands still.',genre:'OPEN WORLD · CRAFTING',region:'AUSTRALIA',picks:31,theme:'theme-dust',art:'DRY SEASON / 02',url:''},
-  {id:'03',name:'No Signal',creator:'Studio Faraway',status:'in-development',description:'A strange transmission. A very empty island. Your call.',genre:'MYSTERY · CO-OP',region:'JAPAN',picks:24,theme:'theme-night',art:'FREQUENCY / 03',url:''},
-  {id:'04',name:'Rook & Ruin',creator:'Kindling Collective',status:'playable',description:'Build a little, lose a lot, make a story worth telling.',genre:'SANDBOX · SOCIAL',region:'UNITED KINGDOM',picks:18,theme:'theme-copper',art:'OLD COUNTRY / 04',url:''},
-  {id:'05',name:'Greenwater',creator:'Lowtide Interactive',status:'in-development',description:'The tide is rising. So is your neighbor’s suspicious new wall.',genre:'SURVIVAL · COMEDY',region:'BRAZIL',picks:9,theme:'theme-pine',art:'HIGH TIDE / 05',url:''},
-  {id:'06',name:'Last Light',creator:'Mira & Friends',status:'playable',description:'A tiny, handmade frontier about the people you meet there.',genre:'ADVENTURE · SOLO',region:'POLAND',picks:4,theme:'theme-dust',art:'AFTERGLOW / 06',url:''}
-];
-const starterActivity = [
-  {name:'Community pick',project:'Long Winter',region:'Canada',time:'JUST NOW'},
-  {name:'Community pick',project:'No Signal',region:'Japan',time:'8 MIN AGO'},
-  {name:'Community pick',project:'Dustline',region:'Australia',time:'23 MIN AGO'},
-  {name:'Community pick',project:'Rook & Ruin',region:'United Kingdom',time:'1 HR AGO'}
-];
-const read = (key, fallback) => { try { const value = localStorage.getItem(key); return value ? JSON.parse(value) : fallback; } catch { return fallback; } };
-let projects = read('rustports-projects-v1', starterProjects);
-let selections = read('rustports-selections-v1', []);
-let activity = read('rustports-activity-v1', starterActivity);
+const API_BASE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? 'http://127.0.0.1:8788' : 'https://api.rustports.com';
+const empty = '<div class="empty-state">NO PUBLISHED PROJECTS YET. NEW SUBMISSIONS APPEAR AFTER MODERATOR APPROVAL.</div>';
+let projects = [];
+let picks = new Set();
 let activeFilter = 'all';
-let sortByPicks = true;
-const grid = document.getElementById('project-grid');
-const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function persist(){localStorage.setItem('rustports-projects-v1',JSON.stringify(projects));localStorage.setItem('rustports-selections-v1',JSON.stringify(selections));localStorage.setItem('rustports-activity-v1',JSON.stringify(activity));}
-function render(){
- const query=document.getElementById('search').value.trim().toLowerCase();
- let visible=projects.filter(p=>(activeFilter==='all'||p.status===activeFilter)&&(!query||`${p.name} ${p.creator} ${p.description} ${p.genre} ${p.region}`.toLowerCase().includes(query)));
- visible=visible.sort((a,b)=>sortByPicks?b.picks-a.picks:a.name.localeCompare(b.name));
- grid.innerHTML=visible.length?visible.map(p=>`<article class="project-card"><div class="card-art ${esc(p.theme||'theme-pine')}" ${p.image?`style="background-image:linear-gradient(0deg,#11170ed1,transparent 68%),url('${p.image}')"`:''}><span class="card-sun"></span><span class="mountain"></span><span class="mountain two"></span><div class="card-tags"><span class="tag ${p.status==='playable'?'tag-status':'tag-dev'}">${p.status==='playable'?'PLAYABLE':'IN DEVELOPMENT'}</span></div><span class="art-number">FIELD ${esc(p.id)}</span><span class="art-label">${esc(p.art||'COMMUNITY PROJECT')}</span></div><div class="card-body"><div class="card-titleline"><div><h3 class="card-title">${esc(p.name)}</h3><div class="card-creator">by ${esc(p.creator)}</div></div>${p.url?`<a class="card-link" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${esc(p.name)} project page">↗</a>`:''}</div><p class="card-desc">${esc(p.description)}</p><div class="card-foot"><span class="card-picks"><b>${p.picks}</b> community picks</span><button class="pick-button ${selections.includes(p.id)?'selected':''}" data-pick="${esc(p.id)}">${selections.includes(p.id)?'✓ Picked':'Pick this'}</button></div></div></article>`).join(''):'<div class="empty-state">NO PROJECTS MATCH THAT SEARCH. TRY ANOTHER TERM.</div>';
- document.getElementById('showing-count').textContent=visible.length.toString().padStart(2,'0');
- document.getElementById('project-count').textContent=projects.length.toString().padStart(2,'0');
- document.getElementById('selection-count').textContent=(128+selections.length).toString();
- document.getElementById('log-count').textContent=selections.length;
- document.querySelector('[data-filter="all"] span').textContent=projects.length.toString().padStart(2,'0');
- renderActivity();
+let sortByNewest = true;
+let account = null;
+const $ = (selector, root=document) => root.querySelector(selector);
+const $$ = (selector, root=document) => [...root.querySelectorAll(selector)];
+const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const statusLabel = value => ({submitted:'Submitted',under_review:'Under review',changes_requested:'Changes requested',approved:'Approved',published:'Published',rejected:'Rejected',removed:'Removed'}[value] || value);
+const stageLabel = value => ({prototype:'Prototype',playable:'Playable',released:'Released'}[value] || 'Project');
+const categoryLabel = value => ({survival:'SURVIVAL',parody:'PARODY',sandbox:'SANDBOX',adventure:'ADVENTURE',other:'COMMUNITY'}[value] || 'COMMUNITY');
+function csrfToken(){const item=document.cookie.split('; ').find(row=>row.startsWith('rp_csrf='));return item?decodeURIComponent(item.slice('rp_csrf='.length)):'';}
+async function api(path, options={}){
+ const headers=new Headers(options.headers||{});
+ const init={...options,headers,credentials:'include'};
+ if(options.body!==undefined){headers.set('Content-Type','application/json');init.body=JSON.stringify(options.body);}
+ if(options.method&&options.method!=='GET')headers.set('X-CSRF-Token',csrfToken());
+ const response=await fetch(`${API_BASE}${path}`,init);
+ let data={};try{data=await response.json();}catch{}
+ if(!response.ok)throw new Error(data.error||`Request failed (${response.status}).`);
+ return data;
 }
-function renderActivity(){
- const list=document.getElementById('activity-list');
- const own=activity.slice(0,8);
- list.innerHTML=own.length?own.map(a=>`<div class="activity-row"><span class="activity-icon">↗</span><div><div class="activity-name">${esc(a.name)} picked <strong>${esc(a.project)}</strong></div><div class="activity-meta">${esc(a.region)} · COMMUNITY SELECTION</div></div><span class="activity-time">${esc(a.time)}</span></div>`).join(''):'<div class="board-empty">No selections yet. Be the first to pick a project.</div>';
+function showMessage(element,message,isError=false){element.textContent=message;element.classList.toggle('error',isError);}
+function artTheme(project){const themes=['theme-ice','theme-dust','theme-night','theme-copper','theme-pine'];let number=0;for(const char of String(project.id))number=(number+char.charCodeAt(0))%themes.length;return themes[number];}
+function renderCatalog(){
+ const query=$('#search').value.trim().toLowerCase();
+ const filtered=projects.filter(project=>(activeFilter==='all'||project.development_stage===activeFilter)&&(!query||`${project.name} ${project.creator} ${project.summary} ${project.category} ${project.repo_owner}`.toLowerCase().includes(query)));
+ filtered.sort((a,b)=>sortByNewest?String(b.published_at||'').localeCompare(String(a.published_at||'')):Number(b.picks)-Number(a.picks));
+ const grid=$('#project-grid');
+ grid.innerHTML=filtered.length?filtered.map(project=>{
+  const selected=picks.has(project.id);
+  return `<article class="project-card"><div class="card-art ${artTheme(project)}"><span class="card-sun"></span><span class="mountain"></span><span class="mountain two"></span><div class="card-tags"><span class="tag tag-status">${escapeHtml(categoryLabel(project.category))}</span></div><span class="art-number">FIELD ${escapeHtml(String(project.id).slice(0,7))}</span><span class="art-label">${escapeHtml(stageLabel(project.development_stage).toUpperCase())}</span></div><div class="card-body"><div class="card-titleline"><div><h3 class="card-title">${escapeHtml(project.name)}</h3><div class="card-creator">by ${escapeHtml(project.creator)}</div></div><a class="card-link" href="${escapeHtml(project.repo_url)}" target="_blank" rel="noopener noreferrer" aria-label="View ${escapeHtml(project.name)} on GitHub">↗</a></div><p class="card-desc">${escapeHtml(project.summary)}</p><p class="repo-note">${project.repo_owner_verified?'GitHub owner verified':'GitHub link · review checked'} · metadata only</p><div class="card-foot"><span class="card-picks"><b>${Number(project.picks)||0}</b> community picks</span><button class="pick-button ${selected?'selected':''}" data-pick="${escapeHtml(project.id)}">${selected?'✓ Picked':'Pick this'}</button></div></div></article>`;
+ }).join(''):empty;
+ $('#showing-count').textContent=filtered.length.toString().padStart(2,'0');
+ $('#project-count').textContent=projects.length.toString().padStart(2,'0');
+ $('#selection-count').textContent=projects.reduce((count,project)=>count+(Number(project.picks)||0),0).toString().padStart(2,'0');
+ $('#log-count').textContent=projects.reduce((count,project)=>count+(Number(project.picks)||0),0).toString();
+ $('[data-filter="all"] span').textContent=projects.length.toString().padStart(2,'0');
 }
-grid.addEventListener('click',e=>{const button=e.target.closest('[data-pick]');if(!button)return;const id=button.dataset.pick;const project=projects.find(p=>p.id===id);if(!project)return;if(selections.includes(id)){selections=selections.filter(item=>item!==id);project.picks=Math.max(0,project.picks-1);activity=activity.filter(a=>a.id!==id);}else{selections.push(id);project.picks++;activity.unshift({id,name:'You',project:project.name,region:'THIS DEVICE',time:'JUST NOW'});}persist();render();});
-document.getElementById('search').addEventListener('input',render);
-document.getElementById('filters').addEventListener('click',e=>{const button=e.target.closest('[data-filter]');if(!button)return;activeFilter=button.dataset.filter;document.querySelectorAll('.filter').forEach(item=>item.classList.toggle('active',item===button));render();});
-document.getElementById('sort').addEventListener('click',()=>{sortByPicks=!sortByPicks;document.getElementById('sort').innerHTML=sortByPicks?'MOST PICKED <span>⌄</span>':'A TO Z <span>⌃</span>';render();});
-const dialog=document.getElementById('submit-dialog');
-['submit-open','hero-submit','bottom-submit','closing-submit','rules-submit'].forEach(id=>document.getElementById(id).addEventListener('click',()=>dialog.showModal()));
-document.querySelector('.modal-close').addEventListener('click',()=>dialog.close());
-dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
-document.getElementById('submission-form').addEventListener('submit',async e=>{
- e.preventDefault();const form=e.currentTarget;if(!form.reportValidity())return;
- const data=new FormData(form);const name=data.get('name').trim();
- if(projects.some(p=>p.name.toLowerCase()===name.toLowerCase())){document.getElementById('form-message').textContent='A project with that name is already in the preview catalog.';return;}
- const image=data.get('image');let imageData='';
- if(image?.size){if(!image.type.startsWith('image/')){document.getElementById('form-message').textContent='Please choose an image file.';return;}if(image.size>2*1024*1024){document.getElementById('form-message').textContent='Image must be 2 MB or smaller.';return;}imageData=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(image);}).catch(()=>null);if(!imageData){document.getElementById('form-message').textContent='Could not read that image. Please try another file.';return;}}
- projects.push({id:`P${Date.now().toString().slice(-5)}`,name,creator:data.get('creator').trim(),status:data.get('status'),description:data.get('description').trim(),genre:'COMMUNITY SUBMISSION',region:'COMMUNITY',picks:0,theme:['theme-ice','theme-dust','theme-night','theme-copper','theme-pine'][projects.length%5],art:'NEW ARRIVAL',url:data.get('url').trim(),image:imageData});
- persist();render();form.reset();document.getElementById('form-message').textContent='Saved in this browser preview. It is not submitted to a live server.';setTimeout(()=>{dialog.close();document.getElementById('form-message').textContent='';},2200);
+function renderActivity(items=[]){
+ const list=$('#activity-list');
+ list.innerHTML=items.length?items.map(item=>`<div class="activity-row"><span class="activity-icon">↗</span><div><div class="activity-name">A community member picked <strong>${escapeHtml(item.project)}</strong></div><div class="activity-meta">PUBLISHED PROJECT · NO PERSONAL DETAILS</div></div><span class="activity-time">${escapeHtml(new Date(item.time).toLocaleDateString())}</span></div>`).join(''):'<div class="board-empty">No public picks yet. Sign in and pick a published project to start the log.</div>';
+}
+function renderAccountNav(user){
+ const target=$('#account-nav');
+ if(!user){target.innerHTML='<button class="button button-light" id="login-open">Sign in / join with GitHub <span>↗</span></button>';$('#login-open').addEventListener('click',openAuth);return;}
+ target.innerHTML=`<div class="account-menu"><span class="account-handle">@${escapeHtml(user.login)}</span><button class="account-button" id="dashboard-open">My dashboard</button></div>`;
+ $('#dashboard-open').addEventListener('click',openDashboard);
+}
+function renderOwnerProjects(items=[]){
+ const container=$('#my-projects');
+ container.innerHTML=items.length?items.map(project=>`<article class="dashboard-project"><div class="dashboard-project-head"><h3>${escapeHtml(project.name)}</h3><span class="status-badge ${escapeHtml(project.status)}">${escapeHtml(statusLabel(project.status))}</span></div><p>${escapeHtml(project.development_stage)} · updated ${escapeHtml(new Date(project.updated_at).toLocaleDateString())}</p><a href="${escapeHtml(project.repo_url)}" target="_blank" rel="noopener noreferrer">Public GitHub repository ↗</a>${project.status_reason?`<p class="status-reason">${escapeHtml(project.status_reason)}</p>`:''}</article>`).join(''):'<div class="dashboard-empty">You have not submitted a project yet. New listings stay private until moderator approval.</div>';
+}
+function transitionsFor(status){return ({submitted:[['under_review','Start review'],['changes_requested','Request changes'],['rejected','Reject']],under_review:[['changes_requested','Request changes'],['approved','Approve'],['rejected','Reject']],changes_requested:[['under_review','Resume review'],['rejected','Reject']],approved:[['published','Publish'],['changes_requested','Request changes'],['removed','Remove']],published:[['changes_requested','Request changes'],['removed','Remove']],rejected:[['removed','Remove']],removed:[]}[status]||[]);}
+function renderModeratorQueue(items=[]){
+ const container=$('#moderation-queue');
+ container.innerHTML=items.length?items.map(project=>`<article class="queue-project" data-queue-project="${escapeHtml(project.id)}"><div class="queue-project-head"><div><h3>${escapeHtml(project.name)}</h3><p>by @${escapeHtml(project.creator)} · ${escapeHtml(statusLabel(project.status))}</p></div><span class="status-badge ${escapeHtml(project.status)}">${escapeHtml(statusLabel(project.status))}</span></div><p>${escapeHtml(project.summary)}</p><p>${escapeHtml(categoryLabel(project.category))} · ${escapeHtml(stageLabel(project.development_stage))} · ${project.repo_owner_verified?'Owner matched':'Owner requires human check'}</p><a href="${escapeHtml(project.repo_url)}" target="_blank" rel="noopener noreferrer">Review public GitHub repository ↗</a><p class="moderation-note">Manually review the public GitHub page in your browser. RustPorts never downloads or stores repository files. If rights or assets are unclear, request changes or reject.</p><label class="check-label"><input class="asset-reviewed" type="checkbox" /><span>I reviewed this public GitHub page, found no copied source-game or third-party assets, and confirmed the rights claim before approval/publication.</span></label><textarea class="queue-reason" maxlength="500" rows="2" placeholder="Required moderator note, visible to the creator"></textarea><div class="queue-actions">${transitionsFor(project.status).map(([status,label])=>`<button class="queue-action" data-status="${status}" data-project="${escapeHtml(project.id)}">${label}</button>`).join('')}</div></article>`).join(''):'<div class="dashboard-empty">The moderation queue is empty.</div>';
+}
+async function openAuth(){
+ $('#auth-form').action=`${API_BASE}/auth/github/start`;
+ $('#auth-dialog').showModal();
+}
+async function openDashboard(){
+ if(!$('#dashboard-dialog').open)$('#dashboard-dialog').showModal();
+ try{
+  const data=await api('/api/me');
+  if(!data.user){$('#dashboard-dialog').close();openAuth();return;}
+  account=data.user;
+  $('#dashboard-user').textContent=`Signed in as @${account.login}. Your submissions are private until published.`;
+  renderOwnerProjects(data.projects||[]);
+  const modArea=$('#moderator-area');modArea.hidden=!account.isModerator;
+  if(account.isModerator){const queue=await api('/api/mod/queue');renderModeratorQueue(queue.projects||[]);}
+ }catch(error){showMessage($('#dashboard-user'),error.message,true);}
+}
+async function refresh(){
+ const message=$('#catalog-message');
+ try{
+  const [catalog,activity]=await Promise.all([api('/api/catalog'),api('/api/activity')]);
+  projects=catalog.projects||[];renderCatalog();renderActivity(activity.activity||[]);showMessage(message,projects.length?'Only moderator-published project listings are shown.':'No public projects yet. Submitted projects stay hidden until a moderator publishes them.');
+  const me=await api('/api/me');account=me.user; if(account)picks=new Set(me.picks||[]);renderAccountNav(account);renderCatalog();
+  const authState=new URLSearchParams(location.search).get('auth');
+  if(authState==='success'){history.replaceState(null,'',location.pathname+location.hash);showMessage(message,'Signed in with GitHub. You can view project status or submit metadata for review.');}
+  else if(authState){history.replaceState(null,'',location.pathname+location.hash);showMessage(message,'GitHub sign-in was not completed. Please try again.',true);}
+ }catch(error){projects=[];renderCatalog();renderActivity([]);renderAccountNav(null);showMessage(message,'The shared moderation service is not connected yet. The catalog is unavailable until the account, GitHub, and database services are configured.',true);}
+}
+function openSubmission(){
+ if(!account){openAuth();return;}
+ $('#form-message').textContent='';$('#submission-form').reset();$('#submit-dialog').showModal();
+}
+$('#submission-form').addEventListener('submit',async event=>{
+ event.preventDefault();
+ const form=event.currentTarget;
+ if(!form.reportValidity())return;
+ if(!account){$('#submit-dialog').close();openAuth();return;}
+ const data=new FormData(form);
+ const submit=form.querySelector('button[type="submit"]');submit.disabled=true;
+ try{
+  const result=await api('/api/projects',{method:'POST',body:{name:data.get('name'),summary:data.get('summary'),category:data.get('category'),developmentStage:data.get('developmentStage'),repositoryUrl:data.get('repositoryUrl'),noAssetsAttested:data.get('noAssetsAttested')==='on'}});
+  $('#form-message').textContent=`${result.project.name} was sent to moderation. Track its status in your dashboard.`;
+  form.reset();await refresh();setTimeout(()=>$('#submit-dialog').close(),1800);
+ }catch(error){$('#form-message').textContent=error.message;}
+ finally{submit.disabled=false;}
 });
-document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();document.getElementById('search').focus();}});
-render();
+$('#project-grid').addEventListener('click',async event=>{
+ const button=event.target.closest('[data-pick]');if(!button)return;
+ if(!account){openAuth();return;}
+ const id=button.dataset.pick;button.disabled=true;
+ try{await api(`/api/projects/${encodeURIComponent(id)}/pick`,{method:picks.has(id)?'DELETE':'POST'});await refresh();}
+ catch(error){showMessage($('#catalog-message'),error.message,true);}
+ finally{button.disabled=false;}
+});
+$('#filters').addEventListener('click',event=>{const button=event.target.closest('[data-filter]');if(!button)return;activeFilter=button.dataset.filter;$$('.filter').forEach(item=>item.classList.toggle('active',item===button));renderCatalog();});
+$('#search').addEventListener('input',renderCatalog);
+$('#sort').addEventListener('click',()=>{sortByNewest=!sortByNewest;$('#sort').innerHTML=sortByNewest?'NEWEST <span>⌄</span>':'MOST PICKED <span>⌃</span>';renderCatalog();});
+['hero-submit','bottom-submit','closing-submit'].forEach(id=>$('#'+id).addEventListener('click',openSubmission));
+$('#login-open').addEventListener('click',openAuth);
+$$('.modal-close').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
+$$('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();}));
+$('#dashboard-new-project').addEventListener('click',()=>{$('#dashboard-dialog').close();openSubmission();});
+$('#logout').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST',body:{}});account=null;$('#dashboard-dialog').close();await refresh();}catch(error){showMessage($('#dashboard-user'),error.message,true);}});
+$('#moderation-queue').addEventListener('click',async event=>{
+ const button=event.target.closest('[data-status]');if(!button)return;
+ const card=button.closest('[data-queue-project]');const reason=card.querySelector('.queue-reason').value.trim();
+ if(!reason){card.querySelector('.queue-reason').focus();showMessage($('#dashboard-user'),'Add a moderator note before changing project status.',true);return;}
+ button.disabled=true;
+ try{await api(`/api/mod/projects/${encodeURIComponent(button.dataset.project)}/status`,{method:'POST',body:{status:button.dataset.status,reason,assetsReviewed:card.querySelector('.asset-reviewed').checked}});await openDashboard();}
+ catch(error){button.disabled=false;showMessage($('#dashboard-user'),error.message,true);}
+});
+document.addEventListener('keydown',event=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#search').focus();}});
+refresh();

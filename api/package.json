@@ -1,0 +1,11 @@
+{
+  "name": "rustports-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --port 8788",
+    "migrate:local": "wrangler d1 migrations apply rustports-metadata --local",
+    "check": "node --check worker.js",
+    "test": "node --test"
+  }
+}
