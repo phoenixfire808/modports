@@ -1,12 +1,13 @@
 # RustPorts API
 
-This Worker is designed for `https://api.rustports.com`. It stores only GitHub account identity, terms acceptance, project text metadata, public GitHub repository URLs, picks, sessions, and review/audit status in D1.
+This Worker is designed for `https://api.rustports.com`. It stores GitHub account identity, terms acceptance, project text metadata, public GitHub repository URLs, optional creator-run server addresses, picks, sessions, and review/audit status in D1. It does not host games or carry game traffic.
 
 ## No-file guarantee
 
 - There is no multipart, binary, image, archive, game-build, or source upload route.
 - Project creation accepts `application/json` only, with an 8 KiB request limit and an allowlist of metadata fields. Unknown fields, including any file/image field, are rejected.
 - Pick endpoints reject request bodies.
+- Optional `connectionAddress` values are validated as `hostname:port` or `[IPv6]:port`, stored as text, and displayed as copyable listing metadata. The Worker never opens a connection to the supplied endpoint; players use the game's own client to connect directly to creator-operated infrastructure.
 - GitHub links must be strict `https://github.com/{owner}/{repo}` public repo URLs. The Worker makes a fixed-origin GitHub API request to read public **repository metadata only**. It never fetches or stores repo contents, source, releases, images, or assets.
 - The GitHub OAuth access token is used only for `GET api.github.com/user` and is not saved. The app requests `read:user`, not repo/content/write scopes.
 - Only `published` projects appear in public list/activity APIs. New submissions begin `submitted`. Moderator updates require an allowlisted GitHub numeric ID, a reason, and a valid state transition.
@@ -24,7 +25,7 @@ The local Pages/static preview should be served at `http://127.0.0.1:8765`, and 
 
 ## Production status
 
-- Production D1 database `rustports-metadata` is provisioned and migrations `0001` and `0002` are applied.
+- Production D1 database `rustports-metadata` is provisioned and migrations `0001` and `0002` are applied. Migration `0003_direct_connection_address.sql` must be applied before deploying this version.
 - The GitHub OAuth app is registered with homepage `https://rustports.com`, exact callback `https://api.rustports.com/auth/github/callback`, wildcard redirect matching off, and device flow off. It requests only `read:user`.
 - The OAuth Client ID is a Worker variable. Its Client Secret is stored encrypted in Cloudflare under the secret binding `RustGitHub`; the Worker reads that binding without exposing its value. For a fresh setup, prefer the conventional secret name `GITHUB_CLIENT_SECRET`.
 - `api.rustports.com` is attached to the deployed Worker and declared in `wrangler.jsonc`; the owner GitHub account is the initial moderator.

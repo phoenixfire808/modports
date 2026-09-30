@@ -61,10 +61,37 @@ test('project submissions require a separate no-assets attestation',async()=>{
 });
 
 test('repository links are restricted to public github.com owner/repository URLs',async()=>{
- const response=await call('/api/projects',{method:'POST',headers:authenticatedHeaders(),body:JSON.stringify({name:'Test',summary:'No assets',category:'survival',developmentStage:'prototype',repositoryUrl:'https://example.com/redirect?to=github.com',noAssetsAttested:true})});
+ const response=await call('/api/projects',{method:'POST',headers:authenticatedHeaders(),body:JSON.stringify({name:'Test',summary:'No assets',category:'survival',developmentStage:'prototype',repositoryUrl:'https://example.com/redirect?to=github.com',noAssetsAttested:true,selfHostedAttested:true})});
  assert.equal(response.status,400);
  assert.match((await response.json()).error,/Link one public GitHub repository/i);
  assert.equal(queries.some(sql=>sql.startsWith('INSERT INTO projects')),false);
+});
+
+test('direct server address is inert metadata and requires a creator-hosting attestation',async()=>{
+ const missing=await call('/api/projects',{method:'POST',headers:authenticatedHeaders(),body:JSON.stringify({name:'Test',summary:'No assets',category:'survival',developmentStage:'prototype',repositoryUrl:'https://github.com/maker/game',connectionAddress:'play.example.net:27015',noAssetsAttested:true})});
+ assert.equal(missing.status,400);
+ assert.match((await missing.json()).error,/operated by you.*connects directly/i);
+ const invalid=await call('/api/projects',{method:'POST',headers:authenticatedHeaders(),body:JSON.stringify({name:'Test',summary:'No assets',category:'survival',developmentStage:'prototype',repositoryUrl:'https://github.com/maker/game',connectionAddress:'https://example.com/file.zip',noAssetsAttested:true,selfHostedAttested:true})});
+ assert.equal(invalid.status,400);
+ assert.match((await invalid.json()).error,/hostname:port/i);
+ assert.equal(queries.some(sql=>sql.startsWith('INSERT INTO projects')),false);
+});
+
+test('valid direct server address is stored as text and RustPorts never connects to it',async()=>{
+ const originalFetch=globalThis.fetch;
+ let fetchUrl='';
+ globalThis.fetch=async input=>{
+  fetchUrl=String(input);
+  return new Response(JSON.stringify({private:false,disabled:false,name:'game',owner:{login:'maker',id:123456,type:'User'}}),{status:200,headers:{'Content-Type':'application/json'}});
+ };
+ try{
+  const response=await call('/api/projects',{method:'POST',headers:authenticatedHeaders(),body:JSON.stringify({name:'Test',summary:'No assets',category:'survival',developmentStage:'playable',repositoryUrl:'https://github.com/maker/game',connectionAddress:'play.example.net:27015',noAssetsAttested:true,selfHostedAttested:true})});
+  assert.equal(response.status,201);
+  assert.equal((await response.json()).project.connectionAddress,'play.example.net:27015');
+  assert.match(fetchUrl,/api\.github\.com\/repos\/maker\/game$/);
+  assert.ok(queries.some(sql=>sql.includes('connection_address')));
+  assert.equal(fetchUrl.includes('play.example.net'),false);
+ }finally{globalThis.fetch=originalFetch;}
 });
 
 test('public catalog query only returns moderator-published rows',async()=>{
@@ -101,7 +128,7 @@ test('unimplemented upload routes return 404 and do not store a body',async()=>{
 });
 
 test('account OAuth remains unavailable until owner secrets are configured',async()=>{
- const form=new URLSearchParams({termsAccepted:'yes',termsVersion:'rustports-2026-09-30-v2'});
+ const form=new URLSearchParams({termsAccepted:'yes',termsVersion:'rustports-2026-09-30-v3'});
  const response=await call('/auth/github/start',{method:'POST',headers:{Origin:siteOrigin,'Content-Type':'application/x-www-form-urlencoded'},body:form});
  assert.equal(response.status,503);
  assert.match((await response.json()).error,/not configured/i);
@@ -110,7 +137,7 @@ test('account OAuth remains unavailable until owner secrets are configured',asyn
 test('OAuth accepts the existing RustGitHub secret binding alias',async()=>{
  const previous={id:env.GITHUB_CLIENT_ID,secret:env.RustGitHub};
  env.GITHUB_CLIENT_ID='public-client-id';env.RustGitHub='not-read-or-logged';
- const form=new URLSearchParams({termsAccepted:'yes',termsVersion:'rustports-2026-09-30-v2'});
+ const form=new URLSearchParams({termsAccepted:'yes',termsVersion:'rustports-2026-09-30-v3'});
  const response=await call('/auth/github/start',{method:'POST',headers:{Origin:siteOrigin,'Content-Type':'application/x-www-form-urlencoded'},body:form});
  assert.equal(response.status,302);
  assert.match(response.headers.get('Location'),/^https:\/\/github\.com\/login\/oauth\/authorize\?/);

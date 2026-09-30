@@ -1,4 +1,4 @@
-const TERMS_VERSION = "rustports-2026-09-30-v2";
+const TERMS_VERSION = "rustports-2026-09-30-v3";
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_SECONDS = 60 * 10;
 const BODY_LIMIT = 8 * 1024;
@@ -140,6 +140,22 @@ function parseRepoUrl(input) {
   if (!match || match[2] === "." || match[2] === ".." || match[2].endsWith(".git")) return null;
   return { owner: match[1], name: match[2], url: `https://github.com/${match[1]}/${match[2]}` };
 }
+function parseConnectionAddress(input) {
+  if (typeof input !== "string") return null;
+  const value = input.trim();
+  if (!value || value.length > 260 || /[^\x21-\x7e]/.test(value)) return null;
+  const match = value.match(/^(\[[0-9a-f:.]+\]|[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?):([0-9]{1,5})$/i);
+  if (!match) return null;
+  const port = Number(match[2]);
+  if (port < 1 || port > 65535) return null;
+  const host = match[1];
+  if (host.startsWith("[")) {
+    try { if (!new URL(`http://${host}/`).hostname.includes(":")) return null; } catch { return null; }
+  } else if (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)*[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(host)) {
+    return null;
+  }
+  return `${host}:${port}`;
+}
 async function publicRepo(owner, name) {
   const endpoint = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
   const response = await fetch(endpoint, {
@@ -263,7 +279,7 @@ async function apiRoute(request, env, url) {
     } });
   }
   if (request.method === "GET" && url.pathname === "/api/catalog") {
-    const result = await env.DB.prepare(`SELECT p.id, p.name, p.summary, p.category, p.development_stage, p.repo_url, p.repo_owner, p.repo_name, p.repo_owner_verified, p.published_at,
+    const result = await env.DB.prepare(`SELECT p.id, p.name, p.summary, p.category, p.development_stage, p.repo_url, p.connection_address, p.repo_owner, p.repo_name, p.repo_owner_verified, p.published_at,
       u.github_login AS creator, COUNT(s.github_id) AS picks
       FROM projects p JOIN users u ON u.github_id=p.github_id LEFT JOIN selections s ON s.project_id=p.id
       WHERE p.status='published' GROUP BY p.id ORDER BY p.published_at DESC LIMIT 200`).all();
@@ -280,7 +296,7 @@ async function apiRoute(request, env, url) {
     if (!user) return apiJson(request, env, { user: null });
     const [acceptance, projects] = await Promise.all([
       env.DB.prepare("SELECT terms_version, accepted_at FROM terms_acceptances WHERE github_id=?1 ORDER BY accepted_at DESC LIMIT 1").bind(user.githubId).first(),
-      env.DB.prepare("SELECT id, name, status, status_reason, repo_url, development_stage, created_at, updated_at FROM projects WHERE github_id=?1 ORDER BY updated_at DESC LIMIT 100").bind(user.githubId).all(),
+      env.DB.prepare("SELECT id, name, status, status_reason, repo_url, connection_address, development_stage, created_at, updated_at FROM projects WHERE github_id=?1 ORDER BY updated_at DESC LIMIT 100").bind(user.githubId).all(),
     ]);
     const owns = await env.DB.prepare("SELECT project_id FROM selections WHERE github_id=?1").bind(user.githubId).all();
     return apiJson(request, env, { user: { githubId: user.githubId, login: user.login, isModerator: user.isModerator, terms: acceptance || null }, projects: projects.results || [], picks: (owns.results || []).map(row => row.project_id) });
@@ -301,8 +317,9 @@ async function apiRoute(request, env, url) {
     const parsed = await bodyJson(request);
     if (parsed.error) return err(request, env, 400, parsed.error);
     const data = parsed.data;
-    if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).some(key => !["name", "summary", "category", "developmentStage", "repositoryUrl", "noAssetsAttested"].includes(key))) return err(request, env, 400, "Only project metadata and a public GitHub repository URL are accepted. Files and assets are never accepted.");
+    if (!data || typeof data !== "object" || Array.isArray(data) || Object.keys(data).some(key => !["name", "summary", "category", "developmentStage", "repositoryUrl", "connectionAddress", "noAssetsAttested", "selfHostedAttested"].includes(key))) return err(request, env, 400, "Only project metadata, a public GitHub repository URL, and a direct server address are accepted. Files and assets are never accepted.");
     if (data.noAssetsAttested !== true) return err(request, env, 400, "Confirm that you are submitting no files or assets.");
+    if (data.selfHostedAttested !== true) return err(request, env, 400, "Confirm that any listed game server is operated by you and connects directly, without RustPorts proxying traffic.");
     const name = cleanText(data.name, 70, "Project name");
     const summary = cleanText(data.summary, 500, "Description");
     if (name.error) return err(request, env, 400, name.error);
@@ -311,6 +328,11 @@ async function apiRoute(request, env, url) {
     if (!STAGES.has(data.developmentStage)) return err(request, env, 400, "Choose a valid project stage.");
     const repo = parseRepoUrl(data.repositoryUrl);
     if (!repo) return err(request, env, 400, "Link one public GitHub repository in the form https://github.com/owner/repository. No files or assets can be attached.");
+    let connectionAddress = null;
+    if (data.connectionAddress !== undefined && data.connectionAddress !== "") {
+      connectionAddress = parseConnectionAddress(data.connectionAddress);
+      if (!connectionAddress) return err(request, env, 400, "Enter a direct server address as hostname:port or [IPv6]:port. RustPorts does not connect to or proxy this address.");
+    }
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const recent = await env.DB.prepare("SELECT COUNT(*) AS count FROM projects WHERE github_id=?1 AND created_at>?2").bind(auth.user.githubId, yesterday).first();
     if (Number(recent?.count || 0) >= PROJECT_LIMIT_PER_DAY) return err(request, env, 429, "Submission limit reached. Try again later.");
@@ -321,10 +343,10 @@ async function apiRoute(request, env, url) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const ownerVerified = metadata.ownerType === "User" && metadata.ownerId === auth.user.githubId ? 1 : 0;
-    await env.DB.prepare(`INSERT INTO projects (id, github_id, name, summary, category, development_stage, repo_url, repo_owner, repo_name, repo_owner_verified, status, status_reason, created_at, updated_at)
-      VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,'submitted','Waiting for moderator review.',?11,?11)`)
-      .bind(id, auth.user.githubId, name.value, summary.value, data.category, data.developmentStage, repo.url, metadata.ownerLogin, metadata.name, ownerVerified, now).run();
-    return apiJson(request, env, { project: { id, name: name.value, status: "submitted", statusReason: "Waiting for moderator review.", repositoryUrl: repo.url, ownerVerified: Boolean(ownerVerified) } }, 201);
+    await env.DB.prepare(`INSERT INTO projects (id, github_id, name, summary, category, development_stage, repo_url, repo_owner, repo_name, repo_owner_verified, connection_address, status, status_reason, created_at, updated_at)
+      VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,'submitted','Waiting for moderator review.',?12,?12)`)
+      .bind(id, auth.user.githubId, name.value, summary.value, data.category, data.developmentStage, repo.url, metadata.ownerLogin, metadata.name, ownerVerified, connectionAddress, now).run();
+    return apiJson(request, env, { project: { id, name: name.value, status: "submitted", statusReason: "Waiting for moderator review.", repositoryUrl: repo.url, connectionAddress, ownerVerified: Boolean(ownerVerified) } }, 201);
   }
   const pickMatch = url.pathname.match(/^\/api\/projects\/([0-9a-f-]{36})\/pick$/i);
   if (pickMatch && ["POST", "DELETE"].includes(request.method)) {
