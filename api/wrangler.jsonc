@@ -10,7 +10,7 @@
     {
       "binding": "DB",
       "database_name": "rustports-metadata",
-      "database_id": "local-development-only"
+      "database_id": "9d40876f-72b2-4039-afa1-4a8ee71ae1ab"
     }
   ],
   "vars": {
