@@ -2,6 +2,10 @@
 
 ## Public toolkit preparation, 2026-09-30
 
+- Published `321b51c` to the new public repository https://github.com/phoenixfire808/rustports on `master`. Existing website history was preserved, with no force push or upstream Jcode changes.
+- Deployed the resources page and development notice to Pages deployment `https://5bbad354.rustports.pages.dev`. All 17 live checks passed, including resources page byte/header verification. Browser navigation from the live resources page reached the public GitHub toolkit and its development notice.
+- A fresh GitHub clone passed snapshot hashes, documentation links and publication checks, then built the included workbook, passed the read-only drift check and passed all 12 starter tests again. The native draft remains explicitly unbuilt/unreleased in this publication.
+
 - User requested publication now with explicit work-in-progress status, rather than waiting for the native tool to be complete. Public destination: `phoenixfire808/rustports`. No stable release or completion date is claimed.
 - Reused Drew's existing generic Entities/Fields/Rules scaffold and spreadsheet-first instructions. Published only synthetic examples, added non-overwriting template generation, literal/formula validation, atomic output and a read-only drift check. The original project and its authored workbook were not changed.
 - Preserved the native Jcode draft as an allowlisted source snapshot, not an installed runtime or entire private checkout. Upstream MIT notice retained. Verified public baseline `76df6464bf64b504996056b8934ec4ec6e8a4d2d` through GitHub. Local compaction changes were excluded. Patch applicability was checked using a private Git index without changing the shared Jcode worktree.
