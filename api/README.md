@@ -22,13 +22,14 @@ npm run dev
 
 The local Pages/static preview should be served at `http://127.0.0.1:8765`, and this API at `http://127.0.0.1:8788`. GitHub login is intentionally unavailable without a GitHub OAuth app; API submission and moderation handlers can be exercised using a test harness or local auth fixture, not a production bypass.
 
-## Production setup, not yet complete
+## Production status
 
-1. Create a D1 database named `rustports-metadata` and replace `database_id` in `wrangler.jsonc` with its ID. Apply migrations remotely only after confirming the database is new and empty.
-2. Create a GitHub OAuth app owned by the site operator, with homepage `https://rustports.com` and callback `https://api.rustports.com/auth/github/callback`. Request only `read:user`. Put `GITHUB_CLIENT_SECRET` into Cloudflare Worker secrets. Set `GITHUB_CLIENT_ID` as a plain-text Worker variable; never put the client secret in code, git, or chat.
-3. Set `MODERATOR_GITHUB_IDS` to the trusted moderator's numeric GitHub ID(s). Do not enable public submissions with an empty moderator list.
-4. Deploy this Worker with Wrangler (the existing OAuth CLI token may need additional Workers/D1 scopes). Attach the Worker custom domain `api.rustports.com` in Cloudflare and verify TLS/CORS/cookies.
-5. Deploy the static frontend only after the API and bindings are ready. Keep file inputs removed. Confirm the `rustports.com` Pages site and `api.rustports.com` are both working over HTTPS.
-6. Before inviting users, publish a contact/takedown route, privacy notice, data-deletion flow, reviewed legal ToS, and appeal process. The included ToS is a draft, not legal advice. Run moderator/account security checks on the production domains.
+- Production D1 database `rustports-metadata` is provisioned and migrations `0001` and `0002` are applied.
+- The GitHub OAuth app is registered with homepage `https://rustports.com`, exact callback `https://api.rustports.com/auth/github/callback`, wildcard redirect matching off, and device flow off. It requests only `read:user`.
+- The OAuth Client ID is a Worker variable. Its Client Secret is stored encrypted in Cloudflare under the secret binding `RustGitHub`; the Worker reads that binding without exposing its value. For a fresh setup, prefer the conventional secret name `GITHUB_CLIENT_SECRET`.
+- `api.rustports.com` is attached to the deployed Worker and declared in `wrangler.jsonc`; the owner GitHub account is the initial moderator.
+- Public catalog and activity endpoints have returned the expected empty JSON responses. OAuth start redirects to GitHub; a real authorization/callback should still be smoke-tested in the browser.
 
-The Worker config deliberately contains a placeholder D1 ID. It cannot be safely deployed to production until the real database ID and secrets are configured. No production D1 database, GitHub OAuth app, or API Worker has been created yet.
+## Before public rollout
+
+The Pages frontend is not yet updated from this repository. Before replacing it with the account/submission UI, establish and publish a working rights/takedown contact, privacy notice, account-deletion process, and reviewed Terms. The included Terms are a draft, not legal advice. Never place the Client Secret in source control or chat. Keep moderators trusted and review each linked public repository manually before publication.

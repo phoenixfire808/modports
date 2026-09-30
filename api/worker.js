@@ -10,6 +10,9 @@ const MODERATOR_STATUSES = new Set(["under_review", "changes_requested", "approv
 function siteOrigin(env) {
   return (env.SITE_ORIGIN || "https://rustports.com").replace(/\/$/, "");
 }
+function githubClientSecret(env) {
+  return env.GITHUB_CLIENT_SECRET || env.RustGitHub;
+}
 function isRustPortsHost(host) {
   return host === "rustports.com" || host.endsWith(".rustports.com");
 }
@@ -175,7 +178,7 @@ async function requireSession(request, env) {
 async function authStart(request, env, url) {
   if (request.method !== "POST") return err(request, env, 405, "Use the sign-in form.");
   if (!exactOrigin(request, env)) return err(request, env, 403, "Invalid origin.");
-  if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) return err(request, env, 503, "GitHub sign-in is not configured yet.");
+  if (!env.GITHUB_CLIENT_ID || !githubClientSecret(env)) return err(request, env, 503, "GitHub sign-in is not configured yet.");
   const type = (request.headers.get("Content-Type") || "").split(";")[0].trim().toLowerCase();
   if (type !== "application/x-www-form-urlencoded") return err(request, env, 415, "Expected the account terms form.");
   const length = Number(request.headers.get("Content-Length") || 0);
@@ -211,7 +214,7 @@ async function authCallback(request, env, url) {
   const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "RustPorts-community-index" },
-    body: new URLSearchParams({ client_id: env.GITHUB_CLIENT_ID, client_secret: env.GITHUB_CLIENT_SECRET, code, redirect_uri: env.GITHUB_CALLBACK_URL || "https://api.rustports.com/auth/github/callback", code_verifier: attempt.code_verifier }),
+    body: new URLSearchParams({ client_id: env.GITHUB_CLIENT_ID, client_secret: githubClientSecret(env), code, redirect_uri: env.GITHUB_CALLBACK_URL || "https://api.rustports.com/auth/github/callback", code_verifier: attempt.code_verifier }),
   });
   if (!tokenResponse.ok) return redirect(`${siteOrigin(env)}/?auth=failed`, { setCookies: [clearCookie("rp_oauth_state", url, { path: "/auth" })] });
   const tokenData = await tokenResponse.json();

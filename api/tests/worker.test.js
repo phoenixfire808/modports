@@ -106,3 +106,15 @@ test('account OAuth remains unavailable until owner secrets are configured',asyn
  assert.equal(response.status,503);
  assert.match((await response.json()).error,/not configured/i);
 });
+
+test('OAuth accepts the existing RustGitHub secret binding alias',async()=>{
+ const previous={id:env.GITHUB_CLIENT_ID,secret:env.RustGitHub};
+ env.GITHUB_CLIENT_ID='public-client-id';env.RustGitHub='not-read-or-logged';
+ const form=new URLSearchParams({termsAccepted:'yes',termsVersion:'rustports-2026-09-30-v2'});
+ const response=await call('/auth/github/start',{method:'POST',headers:{Origin:siteOrigin,'Content-Type':'application/x-www-form-urlencoded'},body:form});
+ assert.equal(response.status,302);
+ assert.match(response.headers.get('Location'),/^https:\/\/github\.com\/login\/oauth\/authorize\?/);
+ delete env.GITHUB_CLIENT_ID;delete env.RustGitHub;
+ if(previous.id!==undefined)env.GITHUB_CLIENT_ID=previous.id;
+ if(previous.secret!==undefined)env.RustGitHub=previous.secret;
+});
