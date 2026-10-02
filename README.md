@@ -45,6 +45,17 @@ For another local session, use `set "RP_PREVIEW_PORT=18937" && npm run preview:t
 
 For real local OAuth, run the Worker on port 8788 with `SITE_ORIGIN` set to the exact local frontend origin and a separate development GitHub app. Never use production secrets in test fixtures.
 
+## Automatic website updates
+
+Pushes to GitHub's `master` branch run the test suite and build the allowlisted website. Only a successful validation can deploy to Cloudflare Pages `rustports` (https://rustports.com). Pull requests run validation without deployment or deployment secrets. API Worker changes and database migrations remain manual.
+
+Workflow: [`.github/workflows/website.yml`](.github/workflows/website.yml). Set these GitHub Actions secrets before deployment can succeed:
+
+- `CLOUDFLARE_ACCOUNT_ID`: the account containing Pages project `rustports`.
+- `CLOUDFLARE_API_TOKEN`: a dedicated Cloudflare API token restricted to that account with **Account / Cloudflare Pages / Edit** permission. Do not use or copy a local Wrangler OAuth/refresh token.
+
+Manage secrets under repository **Settings → Secrets and variables → Actions**. Never commit or paste tokens in issues, logs or chat. The existing Pages production branch is `main`; the workflow deliberately deploys with `--branch main` even though GitHub uses `master`. The `production-website` GitHub environment identifies production deployments. Push access to `master` therefore allows publishing the public website; grant it only to trusted collaborators.
+
 ## Deploy
 
 The public website artifact is **dist/**, not the repository root. The build explicitly copies eleven public files and refuses unexpected output files. Never upload `api/`, credentials, package files, tests, `toolkit/`, or `.wrangler/` to Pages.
