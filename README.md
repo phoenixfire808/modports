@@ -52,7 +52,7 @@ Pushes to GitHub's `master` branch run the test suite and build the allowlisted 
 Workflow: [`.github/workflows/website.yml`](.github/workflows/website.yml). Set these GitHub Actions secrets before deployment can succeed:
 
 - `CLOUDFLARE_ACCOUNT_ID`: the account containing Pages project `rustports`.
-- `CLOUDFLARE_API_TOKEN`: a dedicated Cloudflare API token restricted to that account with **Account / Cloudflare Pages / Edit** permission. Do not use or copy a local Wrangler OAuth/refresh token.
+- `CLOUDFLARE_API_TOKEN` (or the owner's existing `ALEC` secret): a dedicated Cloudflare API token restricted to that account with **Account / Cloudflare Pages / Edit** permission. Do not use or copy a local Wrangler OAuth/refresh token.
 
 Manage secrets under repository **Settings → Secrets and variables → Actions**. Never commit or paste tokens in issues, logs or chat. The existing Pages production branch is `main`; the workflow deliberately deploys with `--branch main` even though GitHub uses `master`. The `production-website` GitHub environment identifies production deployments. Push access to `master` therefore allows publishing the public website; grant it only to trusted collaborators.
 
