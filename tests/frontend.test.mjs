@@ -51,6 +51,16 @@ test('catalogue renders escaped metadata, pressed picks and useful real empty st
  assert.match(page.element('#project-grid').innerHTML,/Clear filters/);
  assert.equal(page.element('#showing-count').textContent,'00');
 });
+test('outdated consent displays reacceptance notice and an optional sign-out control',async()=>{
+ const page=app();
+ page.run(`fetch=async url=>({ok:true,json:async()=>url.endsWith('/api/me')?{user:null,termsRequired:true}:{projects:[],activity:[]}})`);
+ await page.run('refresh()');
+ assert.equal(page.element('#terms-signout').hidden,false);
+ assert.match(page.element('#catalog-message').textContent,/Terms of Service have changed/);
+ page.run(`fetch=async()=>({ok:true,json:async()=>({user:null,projects:[],activity:[]})})`);
+ await page.run('refresh()');
+ assert.equal(page.element('#terms-signout').hidden,true);
+});
 test('search shortcut never moves focus behind an open dialog',()=>{
  const page=app();let prevented=false;
  const event={ctrlKey:true,key:'k',preventDefault(){prevented=true;}};

@@ -110,7 +110,7 @@ async function refresh(){
  }else{showMessage(message,'The catalog could not be refreshed. Check your connection and retry. Previously loaded listings may be out of date.',true);}
  if(activity.status==='fulfilled')renderActivity(activity.value.activity||[]);
  else $('#activity-list').innerHTML='<div class="board-empty">Recent activity is temporarily unavailable.</div>';
- if(me.status==='fulfilled'){account=me.value.user;picks=new Set(account?me.value.picks||[]:[]);}
+ if(me.status==='fulfilled'){account=me.value.user;picks=new Set(account?me.value.picks||[]:[]);$('#terms-signout').hidden=!me.value.termsRequired;if(me.value.termsRequired)showMessage(message,'The Terms of Service have changed. Sign in again to read and accept them before using account features. You can still browse or contact us to withdraw a listing or request account deletion.');}
  else{account=null;picks=new Set();showMessage(message,'Account services could not be reached. Please retry before signing in.',true);}
  renderAccountNav(account);renderCatalog();
  $('#project-grid').setAttribute('aria-busy','false');
@@ -159,6 +159,7 @@ $('#login-open').addEventListener('click',openAuth);
 $$('.modal-close').forEach(button=>button.addEventListener('click',()=>button.closest('dialog').close()));
 $$('dialog').forEach(dialog=>dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();}));
 $('#dashboard-new-project').addEventListener('click',()=>{$('#dashboard-dialog').close();openSubmission();});
+$('#terms-signout').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST'});$('#auth-dialog').close();await refresh();}catch(error){showMessage($('#auth-message'),error.message,true);}});
 $('#logout').addEventListener('click',async()=>{try{await api('/api/logout',{method:'POST',body:{}});account=null;$('#dashboard-dialog').close();await refresh();}catch(error){showMessage($('#dashboard-user'),error.message,true);}});
 $('#moderation-queue').addEventListener('click',async event=>{
  const button=event.target.closest('[data-status]');if(!button)return;

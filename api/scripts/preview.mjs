@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { readFile, readdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
+import { TERMS_VERSION } from '../terms-version.js';
 const root=new URL('../../',import.meta.url);
 import { publicFiles } from '../../scripts/build.mjs';
 const port=Number(process.env.RP_PREVIEW_PORT||8787);
@@ -20,6 +21,7 @@ const hash=async text=>Buffer.from(await crypto.subtle.digest('SHA-256',new Text
 const now=new Date().toISOString();
 for(const [id,login]of [[1,'maker'],[2,'moderator']]){
  await db.prepare('INSERT INTO users VALUES (?1,?2,?3,?3)').bind(id,login,now).run();
+ await db.prepare('INSERT INTO terms_acceptances (github_id,terms_version,accepted_at) VALUES (?1,?2,?3)').bind(id,TERMS_VERSION,now).run();
  await db.prepare('INSERT INTO sessions VALUES (?1,?2,?3,?4,?5)').bind(await hash(String(id).repeat(64)),await hash('c'.repeat(64)),id,now,new Date(Date.now()+3600000).toISOString()).run();
 }
 const server=createServer(async(req,res)=>{

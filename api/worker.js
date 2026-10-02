@@ -1,4 +1,4 @@
-const TERMS_VERSION = "rustports-2026-09-30-v3";
+const TERMS_VERSION = 'rustports-2026-10-02-v4';
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 const OAUTH_SECONDS = 60 * 10;
 const BODY_LIMIT = 8 * 1024;
@@ -181,14 +181,15 @@ async function getSession(request, env) {
   const token = cookies(request).rp_session;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
   const tokenHash = await sha256(token);
-  const row = await env.DB.prepare(`SELECT s.csrf_hash, s.expires_at, u.github_id, u.github_login
-    FROM sessions s JOIN users u ON u.github_id=s.github_id WHERE s.token_hash=?1`).bind(tokenHash).first();
+  const row = await env.DB.prepare(`SELECT s.csrf_hash, s.expires_at, u.github_id, u.github_login,
+    EXISTS(SELECT 1 FROM terms_acceptances a WHERE a.github_id=u.github_id AND a.terms_version=?2) AS terms_current
+    FROM sessions s JOIN users u ON u.github_id=s.github_id WHERE s.token_hash=?1`).bind(tokenHash, TERMS_VERSION).first();
   if (!row || row.expires_at <= new Date().toISOString()) {
     if (row) await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?1").bind(tokenHash).run();
     return null;
   }
   const moderatorIds = (env.MODERATOR_GITHUB_IDS || "").split(",").map(x => x.trim()).filter(Boolean);
-  return { tokenHash, csrfHash: row.csrf_hash, githubId: Number(row.github_id), login: row.github_login, isModerator: moderatorIds.includes(String(row.github_id)) };
+  return { tokenHash, csrfHash: row.csrf_hash, githubId: Number(row.github_id), login: row.github_login, termsCurrent: row.terms_current === 1, isModerator: moderatorIds.includes(String(row.github_id)) };
 }
 async function requireCsrf(request, env, user) {
   const header = request.headers.get("X-CSRF-Token") || "";
@@ -197,9 +198,11 @@ async function requireCsrf(request, env, user) {
   if (!equalText(header, cookieValue) || !equalText(await sha256(header), user.csrfHash)) return false;
   return exactOrigin(request, env);
 }
-async function requireSession(request, env) {
+async function requireSession(request, env, { allowOutdatedTerms = false } = {}) {
   const user = await getSession(request, env);
-  return user ? { user } : { response: err(request, env, 401, "Sign in with GitHub to continue.") };
+  if (!user) return { response: err(request, env, 401, "Sign in with GitHub to continue.") };
+  if (!user.termsCurrent && !allowOutdatedTerms) return { response: err(request, env, 428, "The Terms of Service have changed. Sign in again and accept the current terms to continue.") };
+  return { user };
 }
 async function authStart(request, env, url) {
   if (request.method !== "POST") return err(request, env, 405, "Use the sign-in form.");
@@ -304,7 +307,7 @@ async function apiRoute(request, env, url) {
   }
   if (request.method === "GET" && url.pathname === "/api/health") {
     await env.DB.prepare("SELECT connection_address FROM projects LIMIT 1").all();
-    return apiJson(request, env, { ok: true, version: "launch-2026-09-30", authConfigured: Boolean(env.GITHUB_CLIENT_ID && githubClientSecret(env)) });
+    return apiJson(request, env, { ok: true, version: "legal-2026-10-02", termsVersion: TERMS_VERSION, authConfigured: Boolean(env.GITHUB_CLIENT_ID && githubClientSecret(env)) });
   }
   if (request.method === "GET" && url.pathname === "/api/catalog") {
     const result = await env.DB.prepare(`SELECT p.id, p.name, p.summary, p.category, p.development_stage, p.repo_url, p.connection_address, p.repo_owner, p.repo_name, p.repo_owner_verified, p.published_at,
@@ -322,6 +325,7 @@ async function apiRoute(request, env, url) {
   if (request.method === "GET" && url.pathname === "/api/me") {
     const user = await getSession(request, env);
     if (!user) return apiJson(request, env, { user: null });
+    if (!user.termsCurrent) return apiJson(request, env, { user: null, termsRequired: true, termsVersion: TERMS_VERSION });
     const [acceptance, projects] = await Promise.all([
       env.DB.prepare("SELECT terms_version, accepted_at FROM terms_acceptances WHERE github_id=?1 ORDER BY accepted_at DESC LIMIT 1").bind(user.githubId).first(),
       env.DB.prepare("SELECT id, name, summary, category, status, status_reason, repo_url, connection_address, development_stage, created_at, updated_at FROM projects WHERE github_id=?1 ORDER BY updated_at DESC LIMIT 100").bind(user.githubId).all(),
@@ -330,7 +334,7 @@ async function apiRoute(request, env, url) {
     return apiJson(request, env, { user: { githubId: user.githubId, login: user.login, isModerator: user.isModerator, terms: acceptance || null }, projects: projects.results || [], picks: (owns.results || []).map(row => row.project_id) });
   }
   if (request.method === "POST" && url.pathname === "/api/logout") {
-    const auth = await requireSession(request, env);
+    const auth = await requireSession(request, env, { allowOutdatedTerms: true });
     if (auth.response) return auth.response;
     if (!(await requireCsrf(request, env, auth.user))) return err(request, env, 403, "Request could not be verified.");
     await env.DB.prepare("DELETE FROM sessions WHERE token_hash=?1").bind(auth.user.tokenHash).run();
@@ -390,7 +394,7 @@ async function apiRoute(request, env, url) {
     return apiJson(request, env, { project: { id, name: name.value, status: "submitted", statusReason: "Waiting for moderator review.", repositoryUrl: repo.url, connectionAddress, ownerVerified: Boolean(ownerVerified) } }, 201);
   }
   if (request.method === "DELETE" && editMatch) {
-    const auth = await requireSession(request, env);
+    const auth = await requireSession(request, env, { allowOutdatedTerms: true });
     if (auth.response) return auth.response;
     if (!(await requireCsrf(request, env, auth.user))) return err(request, env, 403, "Request could not be verified.");
     if (await hasRequestContent(request)) return err(request, env, 415, "This endpoint does not accept a body.");

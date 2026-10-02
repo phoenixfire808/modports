@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare';
+import { TERMS_VERSION } from '../terms-version.js';
 
 const origin = 'https://rustports.com';
 const hash = async text => Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))).toString('hex');
@@ -24,6 +25,7 @@ test('real Worker and D1: authentication, review, publishing, picks, owner edits
   const now=new Date().toISOString(),future=new Date(Date.now()+3600000).toISOString();
   for(const [id,login] of [[1,'maker'],[2,'moderator'],[3,'outsider']]){
     await db.prepare('INSERT INTO users VALUES (?1,?2,?3,?3)').bind(id,login,now).run();
+    await db.prepare('INSERT INTO terms_acceptances (github_id,terms_version,accepted_at) VALUES (?1,?2,?3)').bind(id,TERMS_VERSION,now).run();
     await db.prepare('INSERT INTO sessions VALUES (?1,?2,?3,?4,?5)').bind(await hash(String(id).repeat(64)),await hash('c'.repeat(64)),id,now,future).run();
   }
   async function call(path,{user,method='GET',body,headers={}}={}){
@@ -80,7 +82,7 @@ test('real Worker and D1: authentication, review, publishing, picks, owner edits
     assert.equal((await call(path,{user:1,method:'PUT',body:payload})).status,409);
   });
   await t.test('OAuth state is single-use and creates secure cookies without retaining GitHub tokens',async()=>{
-    const response=await mf.dispatchFetch('https://api.rustports.com/auth/github/start',{method:'POST',redirect:'manual',headers:{Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:'termsAccepted=yes&termsVersion=rustports-2026-09-30-v3'});
+    const response=await mf.dispatchFetch('https://api.rustports.com/auth/github/start',{method:'POST',redirect:'manual',headers:{Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:`termsAccepted=yes&termsVersion=${TERMS_VERSION}`});
     assert.equal(response.status,302);
     const auth=new URL(response.headers.get('Location'));
     assert.equal(auth.searchParams.get('scope'),'read:user');assert.equal(auth.searchParams.get('code_challenge_method'),'S256');
@@ -96,6 +98,29 @@ test('real Worker and D1: authentication, review, publishing, picks, owner edits
     assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM oauth_attempts').first()).n,0);
     assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM terms_acceptances WHERE github_id=4').first()).n,1);
     assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM sessions WHERE github_id=4').first()).n,1);
+  });
+  await t.test('outdated consent blocks account actions but permits withdrawal and logout; reacceptance restores access',async()=>{
+    await db.prepare('DELETE FROM terms_acceptances WHERE github_id IN (1,2,3)').run();
+    await db.prepare('INSERT INTO terms_acceptances (github_id,terms_version,accepted_at) VALUES (?1,?2,?3)').bind(1,'rustports-2026-09-30-v3',now).run();
+    const me=await call('/api/me',{user:1});
+    assert.equal(me.data.user,null);assert.equal(me.data.termsRequired,true);assert.equal(me.data.termsVersion,TERMS_VERSION);
+    assert.equal((await call('/api/projects',{user:1,method:'POST',body:payload})).status,428);
+    assert.equal((await call(`/api/projects/${id}`,{user:1,method:'PUT',body:payload})).status,428);
+    assert.equal((await call(`/api/projects/${id}/pick`,{user:3,method:'POST'})).status,428);
+    assert.equal((await call('/api/mod/queue',{user:2})).status,428);
+    assert.equal((await call(`/api/mod/projects/${id}/status`,{user:2,method:'POST',body:{}})).status,428);
+    assert.equal((await call('/api/catalog')).status,200);
+    // A stale-consent creator can still withdraw an owned active listing.
+    await db.prepare("UPDATE projects SET status='submitted' WHERE id=?1").bind(id).run();
+    assert.equal((await call(`/api/projects/${id}`,{user:1,method:'DELETE'})).status,200);
+    assert.equal((await call('/api/logout',{user:3,method:'POST'})).status,200);
+    // A legacy sign-in form cannot create a current acceptance or OAuth attempt.
+    const old=await mf.dispatchFetch('https://api.rustports.com/auth/github/start',{method:'POST',headers:{Origin:origin,'Content-Type':'application/x-www-form-urlencoded'},body:'termsAccepted=yes&termsVersion=rustports-2026-09-30-v3'});
+    assert.equal(old.status,400);
+    assert.equal((await db.prepare('SELECT COUNT(*) AS n FROM oauth_attempts').first()).n,0);
+    await db.prepare('INSERT INTO terms_acceptances (github_id,terms_version,accepted_at) VALUES (?1,?2,?3)').bind(1,TERMS_VERSION,new Date().toISOString()).run();
+    assert.equal((await call('/api/me',{user:1})).data.user.login,'maker');
+    assert.equal((await call('/api/projects',{user:1,method:'POST',body:payload})).status,201);
   });
   await t.test('cross-origin, unauthenticated, oversized and asset writes fail',async()=>{
     assert.equal((await call('/api/projects',{method:'POST',body:payload})).status,401);

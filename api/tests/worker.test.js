@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import worker from '../worker.js';
+import { TERMS_VERSION } from '../terms-version.js';
 
 const siteOrigin = 'https://rustports.com';
 const sessionToken = 'a'.repeat(64);
 const csrfToken = 'b'.repeat(64);
 const sha256 = async text => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))), byte => byte.toString(16).padStart(2,'0')).join('');
-const session = { github_id: 123456, github_login: 'maker', csrf_hash: await sha256(csrfToken), expires_at: new Date(Date.now()+60_000).toISOString() };
+const session = { terms_current: 1, github_id: 123456, github_login: 'maker', csrf_hash: await sha256(csrfToken), expires_at: new Date(Date.now()+60_000).toISOString() };
 const queries = [];
 const db = {
   prepare(sql) {
@@ -128,7 +129,7 @@ test('unimplemented upload routes return 404 and do not store a body',async()=>{
 });
 
 test('account OAuth remains unavailable until owner secrets are configured',async()=>{
- const form=new URLSearchParams({termsAccepted:'yes',termsVersion:'rustports-2026-09-30-v3'});
+ const form=new URLSearchParams({termsAccepted:'yes',termsVersion:TERMS_VERSION});
  const response=await call('/auth/github/start',{method:'POST',headers:{Origin:siteOrigin,'Content-Type':'application/x-www-form-urlencoded'},body:form});
  assert.equal(response.status,503);
  assert.match((await response.json()).error,/not configured/i);
@@ -137,7 +138,7 @@ test('account OAuth remains unavailable until owner secrets are configured',asyn
 test('OAuth accepts the existing RustGitHub secret binding alias',async()=>{
  const previous={id:env.GITHUB_CLIENT_ID,secret:env.RustGitHub};
  env.GITHUB_CLIENT_ID='public-client-id';env.RustGitHub='not-read-or-logged';
- const form=new URLSearchParams({termsAccepted:'yes',termsVersion:'rustports-2026-09-30-v3'});
+ const form=new URLSearchParams({termsAccepted:'yes',termsVersion:TERMS_VERSION});
  const response=await call('/auth/github/start',{method:'POST',headers:{Origin:siteOrigin,'Content-Type':'application/x-www-form-urlencoded'},body:form});
  assert.equal(response.status,302);
  assert.match(response.headers.get('Location'),/^https:\/\/github\.com\/login\/oauth\/authorize\?/);

@@ -45,7 +45,7 @@ test('resource commands are available without JS and copy controls target visibl
  assert.match(html,/python3 -m venv \.venv/);
  assert.match(html,/build_matrix\.py --check/);
  assert.match(html,/No tested binary or stable native release/);
- assert.match(html,/src="resources\.js\?v=lab-20260930"/);
+ assert.match(html,/src="resources\.js\?v=legal-20261002"/);
 });
 
 test('page payloads stay small and asset release queries remain consistent',async()=>{
@@ -56,7 +56,7 @@ test('page payloads stay small and asset release queries remain consistent',asyn
  assert.ok(total<35000,`Combined gzipped public page payload ${total} exceeds 35KB budget`);
  for(const name of publicFiles.filter(n=>n.endsWith('.html'))){
   const html=await readFile(new URL(name,root),'utf8');
-  for(const [,url]of html.matchAll(/(?:src|href)="([^"?]+\.(?:js|css)[^"]*)"/g))assert.ok(url.endsWith('?v=lab-20260930'),`${name}: ${url}`);
+  for(const [,url]of html.matchAll(/(?:src|href)="([^"?]+\.(?:js|css)[^"]*)"/g))assert.ok(url.endsWith('?v=legal-20261002'),`${name}: ${url}`);
  }
 });
 test('HTML links resolve to public pages and comply with strict script/style policy',async()=>{
@@ -71,12 +71,32 @@ test('HTML links resolve to public pages and comply with strict script/style pol
  }
  const css=await readFile(new URL('styles.css',root),'utf8');assert.doesNotMatch(css,/@import/);
 });
+test('legal policies and account consent match the current Worker version',async()=>{
+ const { TERMS_VERSION }=await import('../api/terms-version.js');
+ const terms=await readFile(new URL('terms.html',root),'utf8');
+ const index=await readFile(new URL('index.html',root),'utf8');
+ const worker=await readFile(new URL('api/worker.js',root),'utf8');
+ assert.ok(worker.includes(`const TERMS_VERSION = '${TERMS_VERSION}';`));
+ assert.ok(terms.includes(TERMS_VERSION));
+ assert.ok(index.includes(`name="termsVersion" value="${TERMS_VERSION}"`));
+ for(const id of ['rights','assets','conduct','moderation','reports','permission','liability','disputes','review'])assert.ok(terms.includes(`id="${id}"`));
+ assert.match(terms,/Nothing in these terms excludes or limits liability or remedies that cannot lawfully be excluded/);
+ assert.match(terms,/not an ownership transfer, an irrevocable advertising license/);
+ for(const name of ['terms.html','privacy.html','contact.html']){
+  const html=await readFile(new URL(name,root),'utf8');
+  assert.match(html,/<!--email_off-->[\s\S]*mailto:rights@rustports\.com[\s\S]*<!--\/email_off-->/);
+ }
+ const contact=await readFile(new URL('contact.html',root),'utf8');
+ for(const id of ['rights-reports','appeals','security'])assert.ok(contact.includes(`id="${id}"`));
+ const app=await readFile(new URL('app.js',root),'utf8');
+ assert.match(app,/if\(me\.value\.termsRequired\)/);
+});
 test('security headers restrict framing, script origins, and network destinations',async()=>{
  const headers=await readFile(new URL('_headers',root),'utf8');
  for(const rule of ["script-src 'self'","frame-ancestors 'none'","connect-src https://api.rustports.com","X-Content-Type-Options: nosniff"])assert.ok(headers.includes(rule));
  const html=await readFile(new URL('index.html',root),'utf8');assert.ok(html.includes('id="catalog-retry"'));
- assert.ok(html.includes('src="app.js?v=lab-20260930"'));
- assert.ok(html.includes('href="styles.css?v=lab-20260930"'));
+ assert.ok(html.includes('src="app.js?v=legal-20261002"'));
+ assert.ok(html.includes('href="styles.css?v=legal-20261002"'));
  for(const name of ['contact.html','privacy.html']){
   const page=await readFile(new URL(name,root),'utf8');
   assert.match(page,/<!--email_off-->[\s\S]*mailto:rights@rustports\.com[\s\S]*<!--\/email_off-->/);
