@@ -11,6 +11,7 @@ ModPorts is the companion to [RustPorts](https://rustports.com), with its own br
 - Before enabling sign-in, register a separate GitHub OAuth app with callback `https://api.modports.com/auth/github/callback`, configure `GITHUB_CLIENT_ID`, and set `GITHUB_CLIENT_SECRET` as a Worker secret. Never change the RustPorts app callback or commit secrets.
 - The current legal policies/consent ID and verified `rights@rustports.com` inbox are retained. No unverified ModPorts email address is advertised. The toolkit clone commands and repository links point to this repository in the ModPorts output.
 - GitHub validation is manual-only, respecting the owner's build approval requirement. Existing RustPorts publication automation is not changed.
+- Published preview: https://modports.pages.dev (deployment `d29981ed`). API deployed at https://api.modports.com; catalogue reads work, sign-in is intentionally unconfigured. The custom site domain is attached but pending DNS: add a Cloudflare **CNAME** record named **@** pointing to **modports.pages.dev**. The current local OAuth credential cannot edit DNS. This repository does not change RustPorts' live branding or sign-in.
 
 ## Original RustPorts documentation
 
