@@ -1,4 +1,18 @@
-# RustPorts
+# ModPorts
+
+ModPorts is the companion to [RustPorts](https://rustports.com), with its own branding and midnight-blue, teal and violet theme. This repository is derived from the committed RustPorts source; unrelated in-progress edits were not included.
+
+## ModPorts publication
+
+- Public repository: https://github.com/phoenixfire808/modports
+- Intended website: https://modports.com; intended API: https://api.modports.com
+- Build `npm run build:modports` and publish **only `dist-modports/`** to Cloudflare Pages project `modports` (production branch `main`). `npm run build` still produces the original RustPorts variant in `dist/`.
+- The API uses `api/wrangler.modports.jsonc`, the same catalogue/accounts D1 database and domain-specific sessions. The existing RustPorts Worker remains responsible for scheduled cleanup; no second cron or database migration is needed.
+- Before enabling sign-in, register a separate GitHub OAuth app with callback `https://api.modports.com/auth/github/callback`, configure `GITHUB_CLIENT_ID`, and set `GITHUB_CLIENT_SECRET` as a Worker secret. Never change the RustPorts app callback or commit secrets.
+- The current legal policies/consent ID and verified `rights@rustports.com` inbox are retained. No unverified ModPorts email address is advertised. The toolkit clone commands and repository links point to this repository in the ModPorts output.
+- GitHub validation is manual-only, respecting the owner's build approval requirement. Existing RustPorts publication automation is not changed.
+
+## Original RustPorts documentation
 
 > **Work in progress / early development.** The website is live at https://rustports.com. We are sharing the spreadsheet and reverse-engineering toolkit while it is still being developed. We hope to complete the broader workflow soon, but there is no committed release date. The native Jcode snapshot is experimental, not a stable release.
 

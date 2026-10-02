@@ -1,4 +1,14 @@
-# RustPorts research notes
+# RustPorts / ModPorts research notes
+
+## ModPorts companion publication
+
+- Reused the existing eleven-file vanilla frontend, strict public allowlist, theme tokens and self-contained metadata Worker. Midnight-blue/teal/violet variant preserves RustPorts output and the current v4 policies. No new frontend dependencies, artwork, fonts, trackers or assets.
+- Separate ModPorts repository, Pages project and API origin share the existing D1 catalogue while keeping cookies same-site and origins exact. Separate GitHub OAuth registration is required; no existing authentication settings or callback are changed. The RustPorts Worker retains the sole cleanup cron.
+- Current working source: D:/modports-site-source, based on committed RustPorts 3961b90. Peer edits in D:/rustports-site-source were inspected and excluded, not overwritten or committed. Earlier C: preparation was not used as the website baseline.
+- ModPorts repository links and toolkit clone commands target phoenixfire808/modports. Verified rights mailbox and current consent identifiers are preserved.
+- No CodeGraph tool was available; used direct source inspection. Build allowlist imports no longer trigger hidden builds during tests. GitHub workflow is manual-only to preserve explicit build approvals.
+- Runtime dependencies are reused from the existing D: installation for verification rather than duplicating a gigabyte of node_modules. Twenty-three API/runtime checks and twenty frontend/static/artifact checks passed. The artifact test caught old-domain legal-page text; the source was corrected and ModPorts rebuilt once with separate explicit owner approval. Production OAuth, real rights-email delivery and legal review remain separate acceptance boundaries.
+- Wrangler 4.144.0 `pages project create` unexpectedly applied agent-specific Pages-to-Workers delegation, deploying the original default API configuration under service `modports` and reassigning api.rustports.com. Immediately restored that custom domain to `rustports-api` through the Cloudflare API and verified production health, exact-origin CORS and authConfigured=true. Created the actual Pages project directly through the API; existing-project deployments do not take that delegation path. No RustPorts script, database migration or secrets were changed.
 
 ## Enablement and visual redesign, 2026-09-30
 

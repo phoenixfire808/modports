@@ -17,7 +17,9 @@ function isRustPortsHost(host) {
   return host === "rustports.com" || host.endsWith(".rustports.com");
 }
 function cookieDomain(url) {
-  return isRustPortsHost(url.hostname) ? "; Domain=.rustports.com" : "";
+  if (isRustPortsHost(url.hostname)) return "; Domain=.rustports.com";
+  if (url.hostname === "modports.com" || url.hostname.endsWith(".modports.com")) return "; Domain=.modports.com";
+  return "";
 }
 function cookie(name, value, url, { httpOnly = true, maxAge = SESSION_SECONDS, path = "/" } = {}) {
   const secure = url.protocol === "https:" ? "; Secure" : "";

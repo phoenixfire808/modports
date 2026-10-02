@@ -1,14 +1,22 @@
-import { mkdir, readdir, copyFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { publicFiles, renderSiteFile } from './site-variants.mjs';
+export { publicFiles };
 
-export const publicFiles = ['index.html', 'app.js', 'styles.css', 'terms.html', 'privacy.html', 'contact.html', 'hosting.html', 'resources.html', 'resources.js', '404.html', '_headers'];
-const root = fileURLToPath(new URL('../', import.meta.url));
-const output = path.join(root, 'dist');
-await mkdir(output, { recursive: true });
-// Refuse unexpected files rather than uploading private source or deleting unknown work.
-for (const name of await readdir(output)) {
-  if (!publicFiles.includes(name)) throw new Error(`Unexpected dist entry: ${name}. Review it before building.`);
+// Importing the allowlist from tests or preview must not trigger another build.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const brand = process.argv.includes('--modports') ? 'modports' : 'rustports';
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  const output = path.join(root, brand === 'modports' ? 'dist-modports' : 'dist');
+  await mkdir(output, { recursive: true });
+  // Refuse unexpected files instead of uploading private source or deleting unknown work.
+  for (const name of await readdir(output)) {
+    if (!publicFiles.includes(name)) throw new Error(`Unexpected dist entry: ${name}. Review it before building.`);
+  }
+  for (const name of publicFiles) {
+    const source = await readFile(path.join(root, name), 'utf8');
+    await writeFile(path.join(output, name), renderSiteFile(name, source, brand));
+  }
+  console.log(`Built ${publicFiles.length} allowlisted ${brand} files in ${output}`);
 }
-for (const name of publicFiles) await copyFile(path.join(root, name), path.join(output, name));
-console.log(`Built ${publicFiles.length} explicitly allowlisted public files in ${output}`);

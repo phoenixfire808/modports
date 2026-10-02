@@ -3,6 +3,8 @@ node_modules/
 .dev.vars
 .env*
 dist/
+dist-modports/
+.verification/
 __pycache__/
 *.pyc
 .venv/
